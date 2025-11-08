@@ -1,42 +1,42 @@
-name: build and push
-on:
-  workflow_dispatch:
-  push: 
-    branches: main
+# name: build and push
+# on:
+#   workflow_dispatch:
+#   push: 
+#     branches: main
     
     
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-node@v3
-      with:
-        node-version: '16'
-    - run: npm install
-    - run: npm run build
-      if: success()
-    - run: echo "******************************************************"     
-    - run: git remote -v     
-    - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
-    - run: rm -Rf  $GITHUB_WORKSPACE/docs/*
-    - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
-    - run: cp -a $GITHUB_WORKSPACE/dist/${{ github.event.repository.name }}/. $GITHUB_WORKSPACE/docs
-    - run: git status
-    - run: git add $GITHUB_WORKSPACE/docs/
-    - run: git status
-    - run: ls  -R $GITHUB_WORKSPACE/ -Inode_modules -Isrc 
-    - run: pwd
-      if: success()
-    - name: push
-      uses: github-actions-x/commit@v2.9
-      with:
-        github-token: ${{ github.token }}
-        push-branch: 'master'
-        commit-message: 'build files'
-        force-add: 'true'
-        files: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/docs/
-        name: Mateen
-        email: makjavaprogrammer@gmail.com 
+#     steps:
+#     - uses: actions/checkout@v3
+#     - uses: actions/setup-node@v3
+#       with:
+#         node-version: '16'
+#     - run: npm install
+#     - run: npm run build
+#       if: success()
+#     - run: echo "******************************************************"     
+#     - run: git remote -v     
+#     - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
+#     - run: rm -Rf  $GITHUB_WORKSPACE/docs/*
+#     - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
+#     - run: cp -a $GITHUB_WORKSPACE/dist/${{ github.event.repository.name }}/. $GITHUB_WORKSPACE/docs
+#     - run: git status
+#     - run: git add $GITHUB_WORKSPACE/docs/
+#     - run: git status
+#     - run: ls  -R $GITHUB_WORKSPACE/ -Inode_modules -Isrc 
+#     - run: pwd
+#       if: success()
+#     - name: push
+#       uses: github-actions-x/commit@v2.9
+#       with:
+#         github-token: ${{ github.token }}
+#         push-branch: 'master'
+#         commit-message: 'build files'
+#         force-add: 'true'
+#         files: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/docs/
+#         name: Mateen
+#         email: makjavaprogrammer@gmail.com 
     
