@@ -41,6 +41,9 @@ export function drawShape(ctx: CanvasRenderingContext2D, shape: Shape, isSelecte
     case 'arrow':
       drawArrow(ctx, shape);
       break;
+    case 'type':
+      drawText(ctx, shape);
+      break;
   }
 
   // Draw selection outline
@@ -215,6 +218,23 @@ function drawPolygon(ctx: CanvasRenderingContext2D, shape: Shape, sides: number)
     ctx.fill();
   }
   ctx.stroke();
+}
+
+function drawText(ctx: CanvasRenderingContext2D, shape: Shape) {
+
+  
+  if (!shape.startPoint || !shape.endPoint) return;
+  // var input = document.createElement('input');
+
+  // input.type = 'text';
+  // input.style.position = 'fixed';
+  // input.style.left = (shape.startPoint.x - 4) + 'px';
+  // input.style.top = (shape.startPoint.y - 4) + 'px';
+  // ctx.beginPath();
+  ctx.font = '20px Arial';
+  ctx.fillStyle = 'black';
+  ctx.fillText("Pagal", shape.startPoint.x, shape.startPoint.y);
+  // ctx.stroke();
 }
 
 function drawArrow(ctx: CanvasRenderingContext2D, shape: Shape) {

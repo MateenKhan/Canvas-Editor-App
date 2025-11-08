@@ -11,7 +11,8 @@ import {
   Star,
   Pentagon,
   Hexagon,
-  ArrowRight
+  ArrowRight,
+  Type
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -57,10 +58,11 @@ export function Toolbar({
     { name: 'pentagon', icon: <Pentagon className="h-5 w-5" />, tooltip: 'Pentagon' },
     { name: 'hexagon', icon: <Hexagon className="h-5 w-5" />, tooltip: 'Hexagon' },
     { name: 'arrow', icon: <ArrowRight className="h-5 w-5" />, tooltip: 'Arrow' },
+    { name: 'type', icon: <Type className="h-5 w-5" />, tooltip: 'Type' },
   ];
 
   return (
-    <div className="flex flex-col items-center gap-2 p-3">
+    <div className="flex flex-col items-center gap-1 p-1">
       {tools.map(tool => (
         <Button
           key={tool.name}
@@ -76,7 +78,7 @@ export function Toolbar({
 
       <div className="my-2 h-px w-full bg-gray-200" />
 
-      <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
+      {/* <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -150,7 +152,7 @@ export function Toolbar({
             </div>
           </div>
         </PopoverContent>
-      </Popover>
+      </Popover> */}
     </div>
   );
 }

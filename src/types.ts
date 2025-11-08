@@ -10,7 +10,8 @@ export type Tool =
   | 'star'
   | 'pentagon'
   | 'hexagon'
-  | 'arrow';
+  | 'arrow'
+  | 'type';
 
 export interface Point {
   x: number;

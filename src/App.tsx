@@ -37,7 +37,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col bg-gray-50">
       <header className="border-b bg-white px-6 py-4 shadow-sm">
-        <h1 className="text-gray-900">Canvas Editor with G-code Generator</h1>
+        <h1 className="text-gray-900">Airtajal Canvas</h1>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
