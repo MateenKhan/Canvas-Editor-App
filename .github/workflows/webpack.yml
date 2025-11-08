@@ -26,12 +26,27 @@ jobs:
       run: |
         npm install
         npm run build
-
-    - name: Upload a Build Artifact
-    - uses: actions/upload-artifact@v5.0.0
+        if: success()
+    - run: echo "******************************************************"     
+    - run: git remote -v     
+    - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
+    - run: rm -Rf  $GITHUB_WORKSPACE/docs/*
+    - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
+    - run: cp -a $GITHUB_WORKSPACE/dist/${{ github.event.repository.name }}/. $GITHUB_WORKSPACE/docs
+    - run: git status
+    - run: git add $GITHUB_WORKSPACE/docs/
+    - run: git status
+    - run: ls  -R $GITHUB_WORKSPACE/ -Inode_modules -Isrc 
+    - run: pwd
+      if: success()
+    - name: push
+      uses: github-actions-x/commit@v2.9
       with:
-        # Artifact name
-        name: test
-        # A file, directory or wildcard pattern that describes what to upload
-        path: /docs
+        github-token: ${{ github.token }}
+        push-branch: 'master'
+        commit-message: 'build files'
+        force-add: 'true'
+        files: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/docs/
+        name: Mateen
+        email: makjavaprogrammer@gmail.com 
         
