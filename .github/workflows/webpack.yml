@@ -1,32 +1,22 @@
-name: NodeJS with Webpack
-
+name: build and push
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+  workflow_dispatch:
+  push: 
+    branches: main
+    
+    
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22.x]
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v3
+    - uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
-
-    - name: Build
-      run: |
-        npm install
-        npm run build
-        if: success()
+        node-version: '16'
+    - run: npm install
+    - run: npm run build
+      if: success()
     - run: echo "******************************************************"     
     - run: git remote -v     
     - run: ls  -R $GITHUB_WORKSPACE/docs/ -Inode_modules -Isrc 
@@ -49,4 +39,4 @@ jobs:
         files: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/docs/
         name: Mateen
         email: makjavaprogrammer@gmail.com 
-        
+    
