@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from './ui/button';
 import { ZoomIn, ZoomOut } from 'lucide-react@0.487.0';
 import { Shape, Point, Tool, ViewTransform } from '../types';
-import { drawShape, isPointInShape } from '../utils/shapes';
+import { drawShape, isPointInShape, getShapeBounds } from '../utils/shapes';
 
 interface CanvasEditorProps {
   tool: Tool;
@@ -40,6 +40,11 @@ export function CanvasEditor({
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [lastPinchDist, setLastPinchDist] = useState<number | null>(null);
   const [lastDragPoint, setLastDragPoint] = useState<Point>({ x: 0, y: 0 });
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeTargetId, setResizeTargetId] = useState<string | null>(null);
+  const [resizeHandle, setResizeHandle] = useState<string | null>(null);
+  const [originalShape, setOriginalShape] = useState<Shape | null>(null);
+  const [resizeStartPoint, setResizeStartPoint] = useState<Point | null>(null);
 
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number): Point => {
@@ -98,6 +103,35 @@ export function CanvasEditor({
       drawShape(ctx, currentShape, false);
     }
 
+    // Draw resize handles for selected shapes
+    selectedShapeIds.forEach(id => {
+      const shape = shapes.find(s => s.id === id);
+      if (!shape) return;
+      const bounds = getShapeBounds(shape);
+      const handleSize = 8 / transform.scale;
+      const half = handleSize / 2;
+      const positions: Point[] = [];
+      if (shape.type === 'straightLine' || shape.type === 'arrow') {
+        if (shape.startPoint) positions.push(shape.startPoint);
+        if (shape.endPoint) positions.push(shape.endPoint);
+      } else {
+        positions.push(
+          { x: bounds.x, y: bounds.y },
+          { x: bounds.x + bounds.width / 2, y: bounds.y },
+          { x: bounds.x + bounds.width, y: bounds.y },
+          { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
+          { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+          { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
+          { x: bounds.x, y: bounds.y + bounds.height },
+          { x: bounds.x, y: bounds.y + bounds.height / 2 },
+        );
+      }
+      ctx.fillStyle = '#3b82f6';
+      positions.forEach(p => {
+        ctx.fillRect(p.x - half, p.y - half, handleSize, handleSize);
+      });
+    });
+
     ctx.restore();
   }, [shapes, selectedShapeIds, currentShape, transform]);
 
@@ -143,6 +177,20 @@ export function CanvasEditor({
     // Left mouse button
     if (e.button === 0) {
       if (tool === 'select') {
+        // Check resize handle hit on selected shapes
+        for (let i = shapes.length - 1; i >= 0; i--) {
+          const s = shapes[i];
+          if (!selectedShapeIds.includes(s.id)) continue;
+          const hit = getResizeHandleHit(point, s, transform.scale);
+          if (hit) {
+            setResizeTargetId(s.id);
+            setResizeHandle(hit);
+            setOriginalShape({ ...s });
+            setIsResizing(true);
+            setResizeStartPoint(point);
+            return;
+          }
+        }
         let foundId: string | null = null;
         for (let i = shapes.length - 1; i >= 0; i--) {
           if (isPointInShape(point, shapes[i])) {
@@ -178,6 +226,42 @@ export function CanvasEditor({
       }
     }
   };
+
+  function getResizeHandleHit(p: Point, shape: Shape, scale: number): string | null {
+    const size = 8 / scale;
+    const half = size / 2;
+    if (shape.type === 'straightLine' || shape.type === 'arrow') {
+      if (shape.startPoint && Math.abs(p.x - shape.startPoint.x) <= half && Math.abs(p.y - shape.startPoint.y) <= half) {
+        return 'start';
+      }
+      if (shape.endPoint && Math.abs(p.x - shape.endPoint.x) <= half && Math.abs(p.y - shape.endPoint.y) <= half) {
+        return 'end';
+      }
+      return null;
+    }
+    const b = getShapeBounds(shape);
+    const positions: { pos: Point; key: string }[] = [
+      { pos: { x: b.x, y: b.y }, key: 'nw' },
+      { pos: { x: b.x + b.width / 2, y: b.y }, key: 'n' },
+      { pos: { x: b.x + b.width, y: b.y }, key: 'ne' },
+      { pos: { x: b.x + b.width, y: b.y + b.height / 2 }, key: 'e' },
+      { pos: { x: b.x + b.width, y: b.y + b.height }, key: 'se' },
+      { pos: { x: b.x + b.width / 2, y: b.y + b.height }, key: 's' },
+      { pos: { x: b.x, y: b.y + b.height }, key: 'sw' },
+      { pos: { x: b.x, y: b.y + b.height / 2 }, key: 'w' },
+    ];
+    for (const h of positions) {
+      if (
+        p.x >= h.pos.x - half &&
+        p.x <= h.pos.x + half &&
+        p.y >= h.pos.y - half &&
+        p.y <= h.pos.y + half
+      ) {
+        return h.key;
+      }
+    }
+    return null;
+  }
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -282,6 +366,45 @@ export function CanvasEditor({
         });
         onShapesChange(moved);
         setLastDragPoint(point);
+      }
+      return;
+    }
+
+    if (isResizing && resizeTargetId && resizeHandle && resizeStartPoint) {
+      const idx = shapes.findIndex(s => s.id === resizeTargetId);
+      if (idx !== -1) {
+        const base = { ...(originalShape || shapes[idx]) } as Shape;
+        const dxTotal = point.x - resizeStartPoint.x;
+        const dyTotal = point.y - resizeStartPoint.y;
+        const target = { ...base } as Shape;
+        if (target.type === 'straightLine' || target.type === 'arrow') {
+          if (resizeHandle === 'start' && base.startPoint) {
+            target.startPoint = { x: (base.startPoint.x ?? 0) + dxTotal, y: (base.startPoint.y ?? 0) + dyTotal };
+            if (target.type === 'straightLine') target.points = [target.startPoint!, base.endPoint!];
+          } else if (resizeHandle === 'end' && base.endPoint) {
+            target.endPoint = { x: (base.endPoint.x ?? 0) + dxTotal, y: (base.endPoint.y ?? 0) + dyTotal };
+            if (target.type === 'straightLine') target.points = [base.startPoint!, target.endPoint!];
+          }
+        } else {
+          const x = base.x ?? 0;
+          const y = base.y ?? 0;
+          const w = base.width ?? 0;
+          const h = base.height ?? 0;
+          let nx = x;
+          let ny = y;
+          let nw = w;
+          let nh = h;
+          if (resizeHandle.includes('e')) { nw = Math.max(1, w + dxTotal); }
+          if (resizeHandle.includes('s')) { nh = Math.max(1, h + dyTotal); }
+          if (resizeHandle.includes('w')) { nx = x + dxTotal; nw = Math.max(1, w - dxTotal); }
+          if (resizeHandle.includes('n')) { ny = y + dyTotal; nh = Math.max(1, h - dyTotal); }
+          target.x = nx;
+          target.y = ny;
+          target.width = nw;
+          target.height = nh;
+        }
+        const updated = shapes.map(s => (s.id === resizeTargetId ? target : s));
+        onShapesChange(updated);
       }
       return;
     }
@@ -403,6 +526,15 @@ export function CanvasEditor({
 
     if (isDragging) {
       setIsDragging(false);
+      return;
+    }
+
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeTargetId(null);
+      setResizeHandle(null);
+      setOriginalShape(null);
+      setResizeStartPoint(null);
       return;
     }
 

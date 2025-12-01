@@ -1,20 +1,5 @@
 import React, { useState } from 'react';
 import { Tool } from '../types';
-import { 
-  MousePointer2, 
-  Pencil, 
-  Minus, 
-  Square, 
-  Circle, 
-  Triangle, 
-  Heart, 
-  Star,
-  Pentagon,
-  Hexagon,
-  ArrowRight,
-  Type,
-  Trash2
-} from 'lucide-react';
 import { Button } from './ui/button';
 import {
   Popover,
@@ -23,7 +8,8 @@ import {
 } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './ui/accordion';
+import { SelectionTools } from './SelectionTools';
+import { DrawingTools } from './DrawingTools';
 
 interface ToolbarProps {
   currentTool: Tool;
@@ -36,6 +22,10 @@ interface ToolbarProps {
   onStrokeWidthChange: (width: number) => void;
   onDeleteSelected: () => void;
   selectedCount: number;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export function Toolbar({
@@ -49,79 +39,28 @@ export function Toolbar({
   onStrokeWidthChange,
   onDeleteSelected,
   selectedCount,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: ToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  const tools: { name: Tool; icon: React.ReactNode; tooltip: string }[] = [
-    { name: 'select', icon: <MousePointer2 className="h-5 w-5" />, tooltip: 'Select' },
-    { name: 'freeLine', icon: <Pencil className="h-5 w-5" />, tooltip: 'Free Line' },
-    { name: 'straightLine', icon: <Minus className="h-5 w-5" />, tooltip: 'Straight Line' },
-    { name: 'rectangle', icon: <Square className="h-5 w-5" />, tooltip: 'Rectangle' },
-    { name: 'circle', icon: <Circle className="h-5 w-5" />, tooltip: 'Circle' },
-    { name: 'triangle', icon: <Triangle className="h-5 w-5" />, tooltip: 'Triangle' },
-    { name: 'heart', icon: <Heart className="h-5 w-5" />, tooltip: 'Heart' },
-    { name: 'star', icon: <Star className="h-5 w-5" />, tooltip: 'Star' },
-    { name: 'pentagon', icon: <Pentagon className="h-5 w-5" />, tooltip: 'Pentagon' },
-    { name: 'hexagon', icon: <Hexagon className="h-5 w-5" />, tooltip: 'Hexagon' },
-    { name: 'arrow', icon: <ArrowRight className="h-5 w-5" />, tooltip: 'Arrow' },
-    { name: 'type', icon: <Type className="h-5 w-5" />, tooltip: 'Type' },
-  ];
-
   return (
     <div className="flex flex-col items-center gap-1 p-1">
-      {tools
-        .filter(t => t.name === 'select')
-        .map(tool => (
-          <Button
-            key={tool.name}
-            variant={currentTool === tool.name ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => onToolChange(tool.name)}
-            title={tool.tooltip}
-            className="h-12 w-12 mt-2"
-          >
-            {tool.icon}
-          </Button>
-        ))}
-
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={onDeleteSelected}
-        title={selectedCount > 0 ? `Delete ${selectedCount} selected` : 'No selection'}
-        disabled={selectedCount === 0}
-        className="h-12 w-12"
-      >
-        <Trash2 className="h-5 w-5" />
-      </Button>
+      <SelectionTools
+        currentTool={currentTool}
+        onToolChange={onToolChange}
+        onDeleteSelected={onDeleteSelected}
+        selectedCount={selectedCount}
+        onUndo={onUndo}
+        onRedo={onRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+      />
 
       <div className="my-2 h-px w-full bg-gray-200" />
-
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="tools">
-          <AccordionTrigger className="px-2">
-            <span className="flex-1 text-center">Tools</span>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="flex flex-col items-center gap-1">
-              {tools
-                .filter(t => t.name !== 'select')
-                .map(tool => (
-                  <Button
-                    key={tool.name}
-                    variant={currentTool === tool.name ? 'default' : 'ghost'}
-                    size="icon"
-                    onClick={() => onToolChange(tool.name)}
-                    title={tool.tooltip}
-                    className="h-12 w-12"
-                  >
-                    {tool.icon}
-                  </Button>
-                ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      <DrawingTools currentTool={currentTool} onToolChange={onToolChange} />
 
       {/* <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
         <PopoverTrigger asChild>
