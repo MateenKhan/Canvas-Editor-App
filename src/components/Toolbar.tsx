@@ -12,7 +12,8 @@ import {
   Pentagon,
   Hexagon,
   ArrowRight,
-  Type
+  Type,
+  Trash2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import {
@@ -22,6 +23,7 @@ import {
 } from './ui/popover';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './ui/accordion';
 
 interface ToolbarProps {
   currentTool: Tool;
@@ -32,6 +34,8 @@ interface ToolbarProps {
   onStrokeColorChange: (color: string) => void;
   onFillColorChange: (color: string) => void;
   onStrokeWidthChange: (width: number) => void;
+  onDeleteSelected: () => void;
+  selectedCount: number;
 }
 
 export function Toolbar({
@@ -43,6 +47,8 @@ export function Toolbar({
   onStrokeColorChange,
   onFillColorChange,
   onStrokeWidthChange,
+  onDeleteSelected,
+  selectedCount,
 }: ToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
@@ -63,20 +69,59 @@ export function Toolbar({
 
   return (
     <div className="flex flex-col items-center gap-1 p-1">
-      {tools.map(tool => (
-        <Button
-          key={tool.name}
-          variant={currentTool === tool.name ? 'default' : 'ghost'}
-          size="icon"
-          onClick={() => onToolChange(tool.name)}
-          title={tool.tooltip}
-          className="h-12 w-12"
-        >
-          {tool.icon}
-        </Button>
-      ))}
+      {tools
+        .filter(t => t.name === 'select')
+        .map(tool => (
+          <Button
+            key={tool.name}
+            variant={currentTool === tool.name ? 'default' : 'ghost'}
+            size="icon"
+            onClick={() => onToolChange(tool.name)}
+            title={tool.tooltip}
+            className="h-12 w-12 mt-2"
+          >
+            {tool.icon}
+          </Button>
+        ))}
+
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={onDeleteSelected}
+        title={selectedCount > 0 ? `Delete ${selectedCount} selected` : 'No selection'}
+        disabled={selectedCount === 0}
+        className="h-12 w-12"
+      >
+        <Trash2 className="h-5 w-5" />
+      </Button>
 
       <div className="my-2 h-px w-full bg-gray-200" />
+
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="tools">
+          <AccordionTrigger className="px-2">
+            <span className="flex-1 text-center">Tools</span>
+          </AccordionTrigger>
+          <AccordionContent>
+            <div className="flex flex-col items-center gap-1">
+              {tools
+                .filter(t => t.name !== 'select')
+                .map(tool => (
+                  <Button
+                    key={tool.name}
+                    variant={currentTool === tool.name ? 'default' : 'ghost'}
+                    size="icon"
+                    onClick={() => onToolChange(tool.name)}
+                    title={tool.tooltip}
+                    className="h-12 w-12"
+                  >
+                    {tool.icon}
+                  </Button>
+                ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
         <PopoverTrigger asChild>
