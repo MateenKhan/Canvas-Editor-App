@@ -41,6 +41,9 @@ export function drawShape(ctx: CanvasRenderingContext2D, shape: Shape, isSelecte
     case 'arrow':
       drawArrow(ctx, shape);
       break;
+    case 'type':
+      drawText(ctx, shape);
+      break;
   }
 
   // Draw selection outline
@@ -247,6 +250,24 @@ function drawArrow(ctx: CanvasRenderingContext2D, shape: Shape) {
   ctx.stroke();
 }
 
+function drawText(ctx: CanvasRenderingContext2D, shape: Shape) {
+  if (!shape.text || shape.x === undefined || shape.y === undefined) return;
+  
+  // Set font properties
+  const fontSize = shape.fontSize || 20;
+  const fontFamily = shape.fontFamily || 'Arial';
+  const fontStyle = shape.fontStyle || 'normal';
+  const fontWeight = shape.fontWeight || 'normal';
+  
+  // Ensure the font is properly formatted with quotes around the font family
+  ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px "${fontFamily}"`;
+  ctx.fillStyle = shape.strokeColor || '#000000';
+  ctx.textBaseline = 'top';
+  
+  // Draw the text
+  ctx.fillText(shape.text, shape.x, shape.y);
+}
+
 export function getShapeBounds(shape: Shape): { x: number; y: number; width: number; height: number } {
   if (shape.type === 'freeLine') {
     const xs = shape.points.map(p => p.x);
@@ -274,6 +295,32 @@ export function getShapeBounds(shape: Shape): { x: number; y: number; width: num
       y: minY,
       width: maxX - minX,
       height: maxY - minY,
+    };
+  } else if (shape.type === 'type') {
+    // For text shapes, we need to measure the text to get proper bounds
+    if (!shape.text || shape.x === undefined || shape.y === undefined) {
+      return { x: shape.x ?? 0, y: shape.y ?? 0, width: 0, height: 0 };
+    }
+    
+    // Create a temporary canvas to measure text
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return { x: shape.x, y: shape.y, width: 0, height: 0 };
+    
+    const fontSize = shape.fontSize || 20;
+    const fontFamily = shape.fontFamily || 'Arial';
+    const fontStyle = shape.fontStyle || 'normal';
+    const fontWeight = shape.fontWeight || 'normal';
+    
+    // Ensure the font is properly formatted with quotes around the font family for measurement
+    tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px "${fontFamily}"`;
+    const metrics = tempCtx.measureText(shape.text);
+    
+    return {
+      x: shape.x,
+      y: shape.y,
+      width: metrics.width,
+      height: fontSize,
     };
   } else {
     return {

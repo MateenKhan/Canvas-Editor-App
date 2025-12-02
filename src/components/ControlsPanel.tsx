@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tool, Shape } from '../types';
 import { Button } from './ui/button';
-import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, List } from 'lucide-react';
+import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type, List } from 'lucide-react';
 import { SelectionTools } from './SelectionTools';
 import { DrawingTools, DrawingToolsRef } from './DrawingTools';
 
@@ -27,6 +27,12 @@ interface ControlsPanelProps {
   shapes: Shape[];
   onShapesChange: (shapes: Shape[]) => void;
   onUnitChange: (unit: 'mm' | 'in' | 'ft') => void;
+  textFontFamily?: string;
+  textFontStyle?: 'normal' | 'italic';
+  onTextFontFamilyChange?: (family: string) => void;
+  onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
+  onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
+  currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
   onToggleSelectedList: () => void;
 }
 
@@ -54,6 +60,8 @@ function getToolIcon(tool: Tool) {
       return <Hexagon className="h-4 w-4" stroke="#7c3aed" color="#7c3aed" />;
     case 'arrow':
       return <ArrowRight className="h-4 w-4" stroke="#475569" color="#475569" />;
+    case 'type':
+      return <Type className="h-4 w-4" stroke="#4b5563" color="#4b5563" />;
     default:
       return null;
   }
@@ -79,14 +87,36 @@ export function ControlsPanel({
   shapes,
   onShapesChange,
   onUnitChange,
+  textFontFamily,
+  textFontStyle,
+  onTextFontFamilyChange,
+  onTextFontStyleChange,
+  onTextCreate,
+  currentUnit, // Add currentUnit prop
   onToggleSelectedList
 }: ControlsPanelProps) {
+  const [showPalette, setShowPalette] = useState(false);
+  const paletteRef = useRef<HTMLDivElement>(null);
+
+  // Close palette when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(event.target as Node)) {
+        setShowPalette(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
-    <div className={`sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-2 py-2 ${controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+    <div className="border-b border-border bg-background">
       {controlsVisible && (
-        <div id="controls-panel">
-          <div className="flex flex-col gap-2">
+        <div id="controls-panel" className="px-4 py-3">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -142,6 +172,12 @@ export function ControlsPanel({
                 <DrawingTools
                   currentTool={currentTool}
                   onToolChange={onToolChange}
+                  textFontFamily={textFontFamily}
+                  textFontStyle={textFontStyle}
+                  onTextFontFamilyChange={onTextFontFamilyChange}
+                  onTextFontStyleChange={onTextFontStyleChange}
+                  onTextCreate={onTextCreate}
+                  currentUnit={currentUnit} // Pass currentUnit to DrawingTools
                 />
               )}
             </div>

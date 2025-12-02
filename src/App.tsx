@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CanvasEditor } from './components/CanvasEditor';
 // import { Toolbar } from './components/Toolbar';
 import { ShapeEditor } from './components/ShapeEditor';
@@ -36,7 +36,7 @@ export default function App() {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [textFontFamily, setTextFontFamily] = useState<string>('Arial');
+  const [textFontFamily, setTextFontFamily] = useState<string>('Signatra');
   const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
@@ -46,13 +46,12 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
   const [theme, setTheme] = useState('galaxy');
   const [currentUnit, setCurrentUnit] = useState<'mm' | 'in' | 'ft'>('mm'); // Add unit state
-  // Removed textToCreate state
+  const [textToCreate, setTextToCreate] = useState<{ text: string; fontFamily: string; fontStyle: 'normal' | 'italic'; fontWeight: 'normal' | 'bold'; fontSize: number; x: number; y: number; fontUrl?: string } | null>(null);
+  const textPopupFunctionRef = useRef<{ openTextPopupAt: (x: number, y: number) => void }>(null);
 
-  // Removed text tool related functions
-
-  // Removed textPopupFunctionRef
-
-  // Removed text tool related functions
+  const handleTextCreate = (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => {
+    setTextToCreate({ text, fontFamily, fontStyle, fontWeight, fontSize, x, y, fontUrl });
+  };
 
   React.useEffect(() => {
     if (shapes.length === 0) {
@@ -74,7 +73,13 @@ export default function App() {
     }
   }, []);
 
-  // Removed text tool related functions
+  // Clear textToCreate after it's processed
+  React.useEffect(() => {
+    if (textToCreate) {
+      // Don't clear it immediately, let CanvasEditor handle it
+      // setTextToCreate(null);
+    }
+  }, [textToCreate]);
 
   const handleUndo = () => {
     undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
@@ -85,7 +90,6 @@ export default function App() {
   };
 
   
-
   const handleViewGCode = (gcode: string, margin: number) => {
     setGcodeData({ gcode, margin });
     setShowGCode(true);
@@ -242,7 +246,7 @@ export default function App() {
               onClick={() => {
                 if (!gcodeData) {
                   const gcode = getCanvasGcode();
-                  setGcodeData({ gcode, margin: gcodeData ? gcodeData.margin : 5 });
+                  setGcodeData({ gcode, margin: 5 });
                 }
                 setShowSimulation(false);
                 setShowGCode(true);
@@ -324,6 +328,12 @@ export default function App() {
               shapes={shapes}
               onShapesChange={handleShapesChange}
               onUnitChange={handleUnitChange}
+              textFontFamily={textFontFamily}
+              textFontStyle={textFontStyle}
+              onTextFontFamilyChange={setTextFontFamily}
+              onTextFontStyleChange={setTextFontStyle}
+              onTextCreate={handleTextCreate}
+              currentUnit={currentUnit} // Pass currentUnit to ControlsPanel
               onToggleSelectedList={() => setLeftOpen(prev => !prev)}
             />
           )}
@@ -345,7 +355,15 @@ export default function App() {
             fillColor={fillColor}
             strokeWidth={strokeWidth}
             currentUnit={currentUnit}
-            // Removed text tool related props
+            textFontFamily={textFontFamily}
+            textFontStyle={textFontStyle}
+            textToCreate={textToCreate}
+            onTextCreate={handleTextCreate}
+            onRequestTextPopup={(x: number, y: number) => {
+              if (textPopupFunctionRef.current) {
+                textPopupFunctionRef.current.openTextPopupAt(x, y);
+              }
+            }}
           />
             ) : showGCode ? (
               gcodeData ? (
