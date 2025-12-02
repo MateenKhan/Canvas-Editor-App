@@ -40,11 +40,8 @@ export default function App() {
   const [rightOpen, setRightOpen] = useState(false);
   const [showGCode, setShowGCode] = useState(false);
   const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
-  const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('tools');
-  const [controlsVisible, setControlsVisible] = useState(false);
-  React.useEffect(() => {
-    setControlsVisible(false);
-  }, []);
+  const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
+  const [controlsVisible, setControlsVisible] = useState(true);
   
 
 

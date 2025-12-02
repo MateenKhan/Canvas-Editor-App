@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tool } from '../types';
 
 export function useCanvasTools() {
-  const [currentTool, setCurrentTool] = useState<Tool>('select');
+  const [currentTool, setCurrentTool] = useState<Tool>('rectangle');
   const [lastNonSelectTool, setLastNonSelectTool] = useState<Tool | null>(null);
 
   const handleToolChange = (tool: Tool) => {
@@ -20,4 +20,3 @@ export function useCanvasTools() {
 
   return { currentTool, handleToolChange, handleToggleSelectTool };
 }
-
