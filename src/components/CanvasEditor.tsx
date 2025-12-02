@@ -10,6 +10,7 @@ interface CanvasEditorProps {
   onShapesChange: (shapes: Shape[]) => void;
   selectedShapeIds: string[];
   onSelectionChange: (ids: string[]) => void;
+  onSelectionCommit: (ids: string[]) => void;
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;
@@ -21,6 +22,7 @@ export function CanvasEditor({
   onShapesChange,
   selectedShapeIds,
   onSelectionChange,
+  onSelectionCommit,
   strokeColor,
   fillColor,
   strokeWidth,
@@ -45,6 +47,12 @@ export function CanvasEditor({
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [originalShape, setOriginalShape] = useState<Shape | null>(null);
   const [resizeStartPoint, setResizeStartPoint] = useState<Point | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectStart, setSelectStart] = useState<Point | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [selectionMode, setSelectionMode] = useState<'contains' | 'intersects'>('intersects');
+  const [lastTapTime, setLastTapTime] = useState<number | null>(null);
+  const [lastTapPoint, setLastTapPoint] = useState<Point | null>(null);
 
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number): Point => {
@@ -132,8 +140,21 @@ export function CanvasEditor({
       });
     });
 
+    // Draw selection rectangle if active
+    if (isSelecting && selectionRect) {
+      ctx.strokeStyle = selectionMode === 'contains' ? '#3b82f6' : '#10b981';
+      ctx.fillStyle = selectionMode === 'contains' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(16, 185, 129, 0.1)';
+      ctx.lineWidth = 1 / transform.scale;
+      ctx.setLineDash([6 / transform.scale, 4 / transform.scale]);
+      ctx.beginPath();
+      ctx.rect(selectionRect.x, selectionRect.y, selectionRect.width, selectionRect.height);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
     ctx.restore();
-  }, [shapes, selectedShapeIds, currentShape, transform]);
+  }, [shapes, selectedShapeIds, currentShape, transform, isSelecting, selectionRect, selectionMode]);
 
   // Resize canvas to fit container
   useEffect(() => {
@@ -156,6 +177,41 @@ export function CanvasEditor({
   useEffect(() => {
     redraw();
   }, [redraw]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (tool !== 'select') return;
+      if (selectedShapeIds.length === 0) return;
+      let dx = 0;
+      let dy = 0;
+      const step = e.shiftKey ? 10 : 1;
+      if (e.key === 'ArrowLeft') dx = -step;
+      else if (e.key === 'ArrowRight') dx = step;
+      else if (e.key === 'ArrowUp') dy = -step;
+      else if (e.key === 'ArrowDown') dy = step;
+      if (dx === 0 && dy === 0) return;
+      e.preventDefault();
+      const moved = shapes.map(s => {
+        if (!selectedShapeIds.includes(s.id)) return s;
+        const updated = { ...s } as Shape;
+        if (updated.type === 'freeLine') {
+          updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+        }
+        updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
+        updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
+        if (updated.startPoint) {
+          updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
+        }
+        if (updated.endPoint) {
+          updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+        }
+        return updated;
+      });
+      onShapesChange(moved);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [tool, shapes, selectedShapeIds, onShapesChange]);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -199,14 +255,21 @@ export function CanvasEditor({
           }
         }
         if (foundId) {
-          const next = selectedShapeIds.includes(foundId)
-            ? selectedShapeIds
-            : [...selectedShapeIds, foundId];
-          onSelectionChange(next);
-          setIsDragging(true);
-          setLastDragPoint(point);
+          if (selectedShapeIds.includes(foundId)) {
+            const next = selectedShapeIds.filter(id => id !== foundId);
+            onSelectionChange(next);
+            onSelectionCommit(next);
+          } else {
+            const next = [...selectedShapeIds, foundId];
+            onSelectionChange(next);
+            onSelectionCommit(next);
+            setIsDragging(true);
+            setLastDragPoint(point);
+          }
         } else {
-          onSelectionChange([]);
+          setIsSelecting(true);
+          setSelectStart(point);
+          setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
         }
       } else {
         // Start drawing
@@ -263,6 +326,24 @@ export function CanvasEditor({
     return null;
   }
 
+  function intersectsRect(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+    return (
+      a.x < b.x + b.width &&
+      a.x + a.width > b.x &&
+      a.y < b.y + b.height &&
+      a.y + a.height > b.y
+    );
+  }
+
+  function containsRect(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
+    return (
+      b.x >= a.x &&
+      b.y >= a.y &&
+      b.x + b.width <= a.x + a.width &&
+      b.y + b.height <= a.y + a.height
+    );
+  }
+
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const canvas = canvasRef.current;
@@ -297,14 +378,21 @@ export function CanvasEditor({
         }
       }
       if (foundId) {
-        const next = selectedShapeIds.includes(foundId)
-          ? selectedShapeIds
-          : [...selectedShapeIds, foundId];
-        onSelectionChange(next);
-        setIsDragging(true);
-        setLastDragPoint(point);
+        if (selectedShapeIds.includes(foundId)) {
+          const next = selectedShapeIds.filter(id => id !== foundId);
+          onSelectionChange(next);
+          onSelectionCommit(next);
+        } else {
+          const next = [...selectedShapeIds, foundId];
+          onSelectionChange(next);
+          onSelectionCommit(next);
+          setIsDragging(true);
+          setLastDragPoint(point);
+        }
       } else {
-        onSelectionChange([]);
+        setIsSelecting(true);
+        setSelectStart(point);
+        setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
       }
     } else {
       setIsDrawing(true);
@@ -409,6 +497,48 @@ export function CanvasEditor({
       return;
     }
 
+    if (isSelecting && selectStart && tool === 'select') {
+      const x0 = selectStart.x;
+      const y0 = selectStart.y;
+      const x1 = point.x;
+      const y1 = point.y;
+      const rect = {
+        x: Math.min(x0, x1),
+        y: Math.min(y0, y1),
+        width: Math.abs(x1 - x0),
+        height: Math.abs(y1 - y0),
+      };
+      const isRTL = x1 < x0;
+      const mode: 'contains' | 'intersects' = isRTL ? 'intersects' : 'contains';
+      setSelectionMode(mode);
+      const regionIds = shapes
+        .filter(s => (mode === 'contains' ? containsRect(rect, getShapeBounds(s)) : intersectsRect(rect, getShapeBounds(s))))
+        .map(s => s.id);
+      const minW = 3 / transform.scale;
+      const minH = 3 / transform.scale;
+      if (regionIds.length > 0 && (rect.width >= minW || rect.height >= minH)) {
+        setSelectionRect(rect);
+      } else {
+        setSelectionRect(null);
+      }
+      let combined: string[] = [];
+      if (e.shiftKey) {
+        const set = new Set(selectedShapeIds);
+        regionIds.forEach(id => set.add(id));
+        combined = Array.from(set);
+      } else if (e.ctrlKey || e.metaKey) {
+        const set = new Set(selectedShapeIds);
+        regionIds.forEach(id => {
+          if (set.has(id)) set.delete(id); else set.add(id);
+        });
+        combined = Array.from(set);
+      } else {
+        combined = regionIds;
+      }
+      onSelectionChange(combined);
+      return;
+    }
+
     if (isDrawing && currentShape) {
       const updated = { ...currentShape };
 
@@ -471,6 +601,34 @@ export function CanvasEditor({
     const screenX = touches[0].clientX - rect.left;
     const screenY = touches[0].clientY - rect.top;
     const point = screenToCanvas(screenX, screenY);
+
+    if (isSelecting && selectStart && tool === 'select') {
+      const x0 = selectStart.x;
+      const y0 = selectStart.y;
+      const x1 = point.x;
+      const y1 = point.y;
+      const rectSel = {
+        x: Math.min(x0, x1),
+        y: Math.min(y0, y1),
+        width: Math.abs(x1 - x0),
+        height: Math.abs(y1 - y0),
+      };
+      const isRTL = x1 < x0;
+      const mode: 'contains' | 'intersects' = isRTL ? 'intersects' : 'contains';
+      setSelectionMode(mode);
+      const regionIds = shapes
+        .filter(s => (mode === 'contains' ? containsRect(rectSel, getShapeBounds(s)) : intersectsRect(rectSel, getShapeBounds(s))))
+        .map(s => s.id);
+      const minW = 3 / transform.scale;
+      const minH = 3 / transform.scale;
+      if (regionIds.length > 0 && (rectSel.width >= minW || rectSel.height >= minH)) {
+        setSelectionRect(rectSel);
+      } else {
+        setSelectionRect(null);
+      }
+      onSelectionChange(regionIds);
+      return;
+    }
 
     if (isDragging && selectedShapeIds.length > 0 && tool === 'select') {
       const dx = point.x - lastDragPoint.x;
@@ -538,6 +696,14 @@ export function CanvasEditor({
       return;
     }
 
+    if (isSelecting) {
+      onSelectionCommit(selectedShapeIds);
+      setIsSelecting(false);
+      setSelectStart(null);
+      setSelectionRect(null);
+      return;
+    }
+
     if (isDrawing && currentShape) {
       // Only add shape if it has meaningful size (except free line)
       if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
@@ -556,8 +722,43 @@ export function CanvasEditor({
     e.preventDefault();
     setIsPanning(false);
     setLastPinchDist(null);
+    const canvas = canvasRef.current;
+    if (canvas && tool === 'select') {
+      const rect = canvas.getBoundingClientRect();
+      const ct = e.changedTouches;
+      if (ct && ct.length === 1) {
+        const screenX = ct[0].clientX - rect.left;
+        const screenY = ct[0].clientY - rect.top;
+        const point = screenToCanvas(screenX, screenY);
+        const now = Date.now();
+        const isDouble = lastTapTime !== null && now - lastTapTime < 350 && lastTapPoint !== null && Math.hypot(point.x - lastTapPoint.x, point.y - lastTapPoint.y) < 10 / transform.scale;
+        setLastTapTime(now);
+        setLastTapPoint(point);
+        if (isDouble) {
+          let hitId: string | null = null;
+          for (let i = shapes.length - 1; i >= 0; i--) {
+            if (isPointInShape(point, shapes[i])) { hitId = shapes[i].id; break; }
+          }
+          if (!hitId) {
+            onSelectionChange([]);
+            onSelectionCommit([]);
+            setIsSelecting(false);
+            setSelectStart(null);
+            setSelectionRect(null);
+            return;
+          }
+        }
+      }
+    }
     if (isDragging) {
       setIsDragging(false);
+      return;
+    }
+    if (isSelecting) {
+      onSelectionCommit(selectedShapeIds);
+      setIsSelecting(false);
+      setSelectStart(null);
+      setSelectionRect(null);
       return;
     }
     if (isDrawing && currentShape) {
@@ -599,6 +800,30 @@ export function CanvasEditor({
     e.preventDefault();
   };
 
+  const handleDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (tool !== 'select') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+    const point = screenToCanvas(screenX, screenY);
+    let foundId: string | null = null;
+    for (let i = shapes.length - 1; i >= 0; i--) {
+      if (isPointInShape(point, shapes[i])) {
+        foundId = shapes[i].id;
+        break;
+      }
+    }
+    if (!foundId) {
+      onSelectionChange([]);
+      onSelectionCommit([]);
+      setIsSelecting(false);
+      setSelectStart(null);
+      setSelectionRect(null);
+    }
+  };
+
   return (
     <div ref={containerRef} className="h-full w-full bg-gray-100">
       <canvas
@@ -606,12 +831,16 @@ export function CanvasEditor({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         onMouseLeave={() => {
           setIsPanning(false);
           setIsDragging(false);
+          setIsSelecting(false);
+          setSelectStart(null);
+          setSelectionRect(null);
         }}
         onWheel={handleWheel}
         onContextMenu={handleContextMenu}

@@ -1,15 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { Tool } from '../types';
-import { MousePointer2, Trash2, Undo2, Redo2, Ruler } from 'lucide-react';
+import { MousePointer2, Trash2, Undo2, Redo2, Ruler, XCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 
 interface SelectionToolsProps {
   currentTool: Tool;
   onToolChange: (tool: Tool) => void;
+  onToggleSelect: () => void;
   onDeleteSelected: () => void;
   selectedCount: number;
   onUndo: () => void;
@@ -18,10 +19,11 @@ interface SelectionToolsProps {
   canRedo: boolean;
   selectedShape?: { id: string; x?: number; y?: number; width?: number; height?: number } | undefined;
   onUpdateSelectedDimensions: (updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
+  onClearSelection: () => void;
 }
 
-export function SelectionTools({ currentTool, onToolChange, onDeleteSelected, selectedCount, onUndo, onRedo, canUndo, canRedo, selectedShape, onUpdateSelectedDimensions }: SelectionToolsProps) {
-  const [open, setOpen] = useState(false);
+export function SelectionTools({ currentTool, onToolChange, onToggleSelect, onDeleteSelected, selectedCount, onUndo, onRedo, canUndo, canRedo, selectedShape, onUpdateSelectedDimensions, onClearSelection }: SelectionToolsProps) {
+  const [measureOpen, setMeasureOpen] = useState(false);
   const [unit, setUnit] = useState<'mm' | 'in'>('mm');
   const PX_PER_IN = 96;
   const PX_PER_MM = PX_PER_IN / 25.4;
@@ -47,29 +49,72 @@ export function SelectionTools({ currentTool, onToolChange, onDeleteSelected, se
     }
   }, [selectedShape, pxPerUnit]);
   return (
-    <div className="flex flex-col items-center space-y-1.5">
-      <Button
-        variant={currentTool === 'select' ? 'default' : 'ghost'}
-        size="icon"
-        onClick={() => onToolChange('select')}
-        title="Select"
-        className="h-12 w-12"
-      >
-        <MousePointer2 className="h-5 w-5" stroke="#2563eb" color="#2563eb" />
-      </Button>
+    <div className="w-full">
+      <div className="flex flex-row flex-wrap items-center gap-1.5 rounded-full bg-gray-50 border px-2 py-1 shadow-sm">
+              <Button
+                variant={currentTool === 'select' ? 'default' : 'ghost'}
+                size="icon"
+                onClick={onToggleSelect}
+                title="Select"
+                className={`${currentTool === 'select' ? 'ring-2 ring-blue-500' : ''} h-10 w-10 rounded-full`}
+              >
+                <MousePointer2 className="h-5 w-5" stroke="#2563eb" color="#2563eb" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMeasureOpen(true)}
+                title="Measure"
+                className="h-10 w-10 rounded-full"
+              >
+                <Ruler className="h-5 w-5" stroke="#334155" color="#334155" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClearSelection}
+                title="Unselect All"
+                className="h-10 w-10 rounded-full"
+              >
+                <XCircle className="h-5 w-5" stroke="#64748b" color="#64748b" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Undo"
+                className="h-10 w-10 rounded-full"
+              >
+                <Undo2 className="h-5 w-5" stroke="#d97706" color="#d97706" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Redo"
+                className="h-10 w-10 rounded-full"
+              >
+                <Redo2 className="h-5 w-5" stroke="#059669" color="#059669" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onDeleteSelected}
+                title={selectedCount > 0 ? `Delete ${selectedCount} selected` : 'No selection'}
+                disabled={selectedCount === 0}
+                className="h-10 w-10 rounded-full"
+              >
+                <Trash2 className="h-5 w-5" stroke="#dc2626" color="#dc2626" />
+              </Button>
+      </div>
 
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="Dimensions"
-            className="h-12 w-12"
-          >
-            <Ruler className="h-5 w-5" stroke="#334155" color="#334155" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-60" side="right">
+      <Dialog open={measureOpen} onOpenChange={setMeasureOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dimensions</DialogTitle>
+          </DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Units</Label>
@@ -112,47 +157,15 @@ export function SelectionTools({ currentTool, onToolChange, onDeleteSelected, se
                 if (xVal !== '') updates.x = toPx(Number(xVal));
                 if (yVal !== '') updates.y = toPx(Number(yVal));
                 onUpdateSelectedDimensions(updates);
-                setOpen(false);
+                setMeasureOpen(false);
               }}
               disabled={!selectedShape}
             >
               Apply
             </Button>
           </div>
-        </PopoverContent>
-      </Popover>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onUndo}
-        disabled={!canUndo}
-        title="Undo"
-        className="h-12 w-12"
-      >
-        <Undo2 className="h-5 w-5" stroke="#d97706" color="#d97706" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onRedo}
-        disabled={!canRedo}
-        title="Redo"
-        className="h-12 w-12"
-      >
-        <Redo2 className="h-5 w-5" stroke="#059669" color="#059669" />
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onDeleteSelected}
-        title={selectedCount > 0 ? `Delete ${selectedCount} selected` : 'No selection'}
-        disabled={selectedCount === 0}
-        className="h-12 w-12"
-      >
-        <Trash2 className="h-5 w-5" stroke="#dc2626" color="#dc2626" />
-      </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

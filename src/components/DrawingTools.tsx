@@ -1,7 +1,6 @@
 import React from 'react';
 import { Tool } from '../types';
 import { Button } from './ui/button';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './ui/accordion';
 import { Pencil, Minus, Square, Circle, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type } from 'lucide-react';
 
 interface DrawingToolsProps {
@@ -26,29 +25,20 @@ const toolItems: { name: Tool; icon: React.ReactNode; tooltip: string }[] = [
 export function DrawingTools({ currentTool, onToolChange }: DrawingToolsProps) {
   return (
     <div className="w-full">
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="tools">
-          <AccordionTrigger className="px-2">
-            <span className="flex-1 text-center">Basic</span>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="flex flex-col items-center space-y-1.5">
-              {toolItems.map(tool => (
-                <Button
-                  key={tool.name}
-                  variant={currentTool === tool.name ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => onToolChange(tool.name)}
-                  title={tool.tooltip}
-                  className="h-12 w-12"
-                >
-                  {tool.icon}
-                </Button>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      <div className="flex flex-row flex-wrap items-center gap-1.5 rounded-full bg-gray-50 border px-2 py-1 shadow-sm">
+        {toolItems.map(tool => (
+          <Button
+            key={tool.name}
+            variant={currentTool === tool.name ? 'default' : 'ghost'}
+            size="icon"
+            onClick={() => onToolChange(tool.name)}
+            title={tool.tooltip}
+            className={`${currentTool === tool.name ? 'ring-2 ring-blue-500' : ''} h-10 w-10 rounded-full`}
+          >
+            {tool.icon}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }

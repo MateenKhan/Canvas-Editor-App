@@ -104,6 +104,11 @@
     line-height: inherit;
   }
 
+  html, body {
+    overflow: hidden;
+    height: 100%;
+  }
+
   hr {
     height: 0;
     color: inherit;

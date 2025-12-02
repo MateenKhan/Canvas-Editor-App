@@ -14,6 +14,7 @@ import { DrawingTools } from './DrawingTools';
 interface ToolbarProps {
   currentTool: Tool;
   onToolChange: (tool: Tool) => void;
+  onToggleSelect: () => void;
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;
@@ -28,11 +29,13 @@ interface ToolbarProps {
   canRedo: boolean;
   selectedShape?: Shape;
   onUpdateSelectedDimensions: (updates: Partial<Shape>) => void;
+  onClearSelection: () => void;
 }
 
 export function Toolbar({
   currentTool,
   onToolChange,
+  onToggleSelect,
   strokeColor,
   fillColor,
   strokeWidth,
@@ -47,6 +50,7 @@ export function Toolbar({
   canRedo,
   selectedShape,
   onUpdateSelectedDimensions,
+  onClearSelection,
 }: ToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
@@ -55,6 +59,7 @@ export function Toolbar({
       <SelectionTools
         currentTool={currentTool}
         onToolChange={onToolChange}
+        onToggleSelect={onToggleSelect}
         onDeleteSelected={onDeleteSelected}
         selectedCount={selectedCount}
         onUndo={onUndo}
@@ -63,10 +68,10 @@ export function Toolbar({
         canRedo={canRedo}
         selectedShape={selectedShape}
         onUpdateSelectedDimensions={onUpdateSelectedDimensions}
+        onClearSelection={onClearSelection}
       />
 
       <div className="my-2 h-px w-full bg-gray-200" />
-      <DrawingTools currentTool={currentTool} onToolChange={onToolChange} />
 
       {/* <Popover open={showColorPicker} onOpenChange={setShowColorPicker}>
         <PopoverTrigger asChild>
