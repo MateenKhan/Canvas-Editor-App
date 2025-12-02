@@ -1536,3 +1536,196 @@ html {
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0) scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1)) rotate(var(--tw-exit-rotate, 0));
   }
 }
+/* Thematic palettes */
+.theme-galaxy {
+  --background: #0b1025;
+  --foreground: #e6e6ff;
+  --card: #121735;
+  --card-foreground: #e6e6ff;
+  --popover: #121735;
+  --popover-foreground: #e6e6ff;
+  --primary: #7c3aed;
+  --primary-foreground: #f8f8ff;
+  --secondary: #4c1d95;
+  --secondary-foreground: #e6e6ff;
+  --muted: #1a1f3f;
+  --muted-foreground: #b8b8d9;
+  --accent: #0ea5e9;
+  --accent-foreground: #081226;
+  --destructive: #ef4444;
+  --destructive-foreground: #fff;
+  --border: #273055;
+  --input-background: #0f1430;
+  --switch-background: #2b3566;
+  font-family: "Trebuchet MS", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background-image: radial-gradient(800px 400px at 10% 10%, rgba(124,58,237,.15), transparent), radial-gradient(600px 300px at 90% 20%, rgba(14,165,233,.2), transparent), radial-gradient(1000px 500px at 50% 80%, rgba(236,72,153,.12), transparent);
+  position: relative;
+}
+
+.theme-galaxy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 5% 10%, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 2px),
+    radial-gradient(1px 1px at 15% 35%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 2px),
+    radial-gradient(1px 1px at 30% 20%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0.85) 1px, transparent 2px),
+    radial-gradient(1px 1px at 45% 60%, rgba(255,255,255,0.75) 0, rgba(255,255,255,0.75) 1px, transparent 2px),
+    radial-gradient(1px 1px at 70% 25%, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 2px),
+    radial-gradient(1px 1px at 85% 70%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 2px),
+    radial-gradient(1px 1px at 95% 40%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0.85) 1px, transparent 2px),
+    radial-gradient(1px 1px at 25% 85%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 2px);
+}
+
+.theme-galaxy h1, .theme-galaxy h2, .theme-galaxy h3 {
+  color: #000;
+  position: relative;
+}
+
+.theme-galaxy h1::before, .theme-galaxy h2::before, .theme-galaxy h3::before {
+  content: "";
+  position: absolute;
+  inset: -6px -10px;
+  z-index: -1;
+  border-radius: .5rem;
+  background-image:
+    radial-gradient(1px 1px at 10% 30%, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 2px),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 2px),
+    radial-gradient(1px 1px at 70% 20%, rgba(255,255,255,0.85) 0, rgba(255,255,255,0.85) 1px, transparent 2px),
+    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 2px);
+}
+
+.theme-forest {
+  --background: #0f2f26;
+  --foreground: #e6f2e9;
+  --card: #133a2e;
+  --card-foreground: #e6f2e9;
+  --primary: #16a34a;
+  --primary-foreground: #052014;
+  --secondary: #65a30d;
+  --secondary-foreground: #04160f;
+  --muted: #1a4538;
+  --muted-foreground: #bfe3cf;
+  --accent: #22c55e;
+  --accent-foreground: #052014;
+  --border: #255649;
+  --input-background: #123427;
+  --switch-background: #2b5c4c;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.theme-glacier {
+  --background: #e6f3ff;
+  --foreground: #0f172a;
+  --card: #f0f8ff;
+  --card-foreground: #0f172a;
+  --primary: #38bdf8;
+  --primary-foreground: #0b1220;
+  --secondary: #93c5fd;
+  --secondary-foreground: #07203a;
+  --muted: #dbeafe;
+  --muted-foreground: #334155;
+  --accent: #22d3ee;
+  --accent-foreground: #042131;
+  --border: #cfe0f3;
+  --input-background: #f5fbff;
+  --switch-background: #bcd8f3;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.theme-summer {
+  --background: #fff7ed;
+  --foreground: #1f2937;
+  --card: #fffbeb;
+  --card-foreground: #1f2937;
+  --primary: #f59e0b;
+  --primary-foreground: #0b1220;
+  --secondary: #f97316;
+  --secondary-foreground: #0b1220;
+  --muted: #fde68a;
+  --muted-foreground: #374151;
+  --accent: #34d399;
+  --accent-foreground: #083a2a;
+  --border: #fbd1a2;
+  --input-background: #fff1db;
+  --switch-background: #ffd8a8;
+  font-family: "Verdana", Geneva, Tahoma, sans-serif;
+}
+
+.theme-rosey {
+  --background: #fff1f5;
+  --foreground: #1f2937;
+  --card: #ffe4ed;
+  --card-foreground: #1f2937;
+  --primary: #ec4899;
+  --primary-foreground: #2e0a19;
+  --secondary: #f43f5e;
+  --secondary-foreground: #2e0a19;
+  --muted: #fecdd3;
+  --muted-foreground: #374151;
+  --accent: #fb7185;
+  --accent-foreground: #2e0a19;
+  --border: #f7c2d0;
+  --input-background: #ffeaf0;
+  --switch-background: #ffd0dd;
+  font-family: "Cambria", Cochin, Georgia, Times, serif;
+}
+
+.theme-ocean {
+  --background: #0b1220;
+  --foreground: #cfe8ff;
+  --card: #0f1a2b;
+  --card-foreground: #cfe8ff;
+  --primary: #0284c7;
+  --primary-foreground: #e6f6ff;
+  --secondary: #22d3ee;
+  --secondary-foreground: #061624;
+  --muted: #122035;
+  --muted-foreground: #a8cbe6;
+  --accent: #14b8a6;
+  --accent-foreground: #061624;
+  --border: #1f3350;
+  --input-background: #0c1728;
+  --switch-background: #2a3e5e;
+  font-family: "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+.theme-sunset {
+  --background: #fff1e6;
+  --foreground: #1f2937;
+  --card: #ffe8d6;
+  --card-foreground: #1f2937;
+  --primary: #fb7185;
+  --primary-foreground: #2e0a19;
+  --secondary: #f59e0b;
+  --secondary-foreground: #2e160b;
+  --muted: #fed7aa;
+  --muted-foreground: #374151;
+  --accent: #a78bfa;
+  --accent-foreground: #0b1220;
+  --border: #f3c6a7;
+  --input-background: #ffe6d1;
+  --switch-background: #ffd3b0;
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, sans-serif;
+}
+
+.theme-midnight {
+  --background: #0b0f14;
+  --foreground: #e5e7eb;
+  --card: #0f141a;
+  --card-foreground: #e5e7eb;
+  --primary: #6366f1;
+  --primary-foreground: #eef2ff;
+  --secondary: #475569;
+  --secondary-foreground: #e5e7eb;
+  --muted: #10161c;
+  --muted-foreground: #cbd5e1;
+  --accent: #14b8a6;
+  --accent-foreground: #06261f;
+  --border: #1f2730;
+  --input-background: #0d1217;
+  --switch-background: #2b3642;
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}

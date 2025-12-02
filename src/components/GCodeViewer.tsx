@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, RefreshCcw } from 'lucide-react';
+import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, FileCode, Shapes } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -14,6 +14,7 @@ import { Slider } from './ui/slider';
 interface GCodeViewerProps {
   gcode: string;
   margin: number;
+  onLoadFromCanvas?: () => string | void;
 }
 
 interface GCodeMove {
@@ -22,7 +23,7 @@ interface GCodeMove {
   isRapid: boolean;
 }
 
-export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
+export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,9 +37,9 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
   const [playDirection, setPlayDirection] = useState<1 | -1>(1);
   const [editedGcode, setEditedGcode] = useState(gcode);
   const [parseVersion, setParseVersion] = useState(0);
-  const [feed, setFeed] = useState<number>(1000);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
+  const [accordionOpen, setAccordionOpen] = useState<string[]>(['simulation', 'gcode']);
   const pinchDistRef = useRef<number | null>(null);
   const pinchMidRef = useRef<{ x: number; y: number } | null>(null);
   const lastDragRef = useRef<{ x: number; y: number } | null>(null);
@@ -263,13 +264,18 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isPlaying, currentStep, moves.length]);
 
+  const handleRefresh = () => {
+    setIsPlaying(false);
+    setParseVersion(v => v + 1);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="flex items-center justify-between bg-white px-4 py-3 border-b shadow-sm">
         <div className="flex items-center gap-2">
-          <h2 className="text-gray-900 font-semibold">G-code Preview</h2>
+          <h2 className="font-semibold">G-code Preview</h2>
           <span className="text-gray-600 text-sm">
-            {gcode.split('\n').length} lines | Margin: {margin}mm
+            {editedGcode.split('\n').length} lines | Margin: {margin}mm
           </span>
         </div>
         <Button
@@ -283,7 +289,12 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
       </div>
       
       <div className="flex-1 overflow-auto p-4">
-        <Accordion type="multiple" defaultValue={["simulation"]} className="w-full">
+        <Accordion
+          type="multiple"
+          value={accordionOpen}
+          onValueChange={(val) => setAccordionOpen(Array.isArray(val) ? val : [])}
+          className="w-full"
+        >
           <AccordionItem value="simulation">
             <AccordionTrigger className="text-lg font-semibold">
               Simulation
@@ -318,13 +329,35 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
 
                   {/* Playback Controls */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={handleReset} title="Reset">
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleRefresh} title="Refresh">
-                        <RefreshCcw className="h-4 w-4" />
-                      </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleReset} title="Reset">
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleRefresh} title="Load from G-code">
+                      <FileCode className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (!onLoadFromCanvas) return;
+                        const next = onLoadFromCanvas();
+                        if (typeof next === 'string' && next.length > 0) {
+                          setEditedGcode(next);
+                          setParseVersion(v => v + 1);
+                          setCurrentStep(0);
+                          setPlayDirection(1);
+                          setIsPlaying(true);
+                          setAccordionOpen(prev => Array.from(new Set([...prev, 'simulation'])));
+                          setTimeout(() => {
+                            containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          }, 50);
+                        }
+                      }}
+                      title="Load from Canvas"
+                    >
+                      <Shapes className="h-4 w-4" />
+                    </Button>
                       <Button variant="outline" size="sm" onClick={() => { setPlayDirection(-1); setIsPlaying(true); }} title="Reverse">
                         <Rewind className="h-4 w-4" />
                       </Button>
@@ -509,10 +542,6 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
               <AccordionContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Input type="number" value={feed} onChange={e => setFeed(Number(e.target.value || 0))} className="w-28" placeholder="F value" />
-                  <Button variant="outline" size="sm" onClick={applyFeedrate}>Apply Feedrate</Button>
-                </div>
-                <div className="flex items-center gap-2">
                   <Input value={findText} onChange={e => setFindText(e.target.value)} className="flex-1" placeholder="Find" />
                   <Input value={replaceText} onChange={e => setReplaceText(e.target.value)} className="flex-1" placeholder="Replace" />
                   <Button
@@ -529,7 +558,25 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
                   <span className="text-xs text-gray-600">Matches: {findText ? (editedGcode.split(findText).length - 1) : 0}</span>
                 </div>
                 <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[500px]">
-                  <Textarea value={editedGcode} onChange={e => setEditedGcode(e.target.value)} className="text-green-400 font-mono text-sm leading-relaxed min-h-[240px]" />
+                  <Textarea value={editedGcode} onChange={e => setEditedGcode(e.target.value)} className="text-green-400 font-mono text-sm leading-relaxed min-h-[240px] h-64 overflow-auto" />
+                </div>
+                <div className="flex justify-end">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      setParseVersion(v => v + 1);
+                      setCurrentStep(0);
+                      setPlayDirection(1);
+                      setIsPlaying(true);
+                      setAccordionOpen(prev => Array.from(new Set([...prev, 'simulation'])));
+                      setTimeout(() => {
+                        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 50);
+                    }}
+                  >
+                    Simulate
+                  </Button>
                 </div>
               </div>
               </AccordionContent>
@@ -539,21 +586,4 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
     </div>
   );
 }
-  const handleRefresh = () => {
-    setIsPlaying(false);
-    setParseVersion(v => v + 1);
-  };
-
-  const applyFeedrate = () => {
-    const lines = editedGcode.split('\n');
-    const next = lines.map(l => {
-      if (/G1\b/.test(l)) {
-        if (/F[-\d.]+/.test(l)) {
-          return l.replace(/F[-\d.]+/g, `F${feed}`);
-        }
-        return `${l} F${feed}`;
-      }
-      return l.replace(/F[-\d.]+/g, `F${feed}`);
-    }).join('\n');
-    setEditedGcode(next);
-  };
+  

@@ -12,6 +12,7 @@ import { SelectionTools } from './components/SelectionTools';
 import { DrawingTools } from './components/DrawingTools';
 // import { ExportTools } from './components/ExportTools';
 import { Shape, Tool } from './types';
+import { generateGCode } from './utils/gcode';
 import { useCanvasTools } from './hooks/useCanvasTools';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useShapes } from './hooks/useShapes';
@@ -42,6 +43,7 @@ export default function App() {
   const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [theme, setTheme] = useState('galaxy');
 
   React.useEffect(() => {
     if (shapes.length === 0) {
@@ -83,32 +85,40 @@ export default function App() {
     setRightOpen(false);
   };
 
+  const getCanvasGcode = () => {
+    const shapesToExport = selectedShapeIds.length > 0
+      ? shapes.filter(s => selectedShapeIds.includes(s.id))
+      : shapes;
+    const m = gcodeData ? gcodeData.margin : 5;
+    return generateGCode(shapesToExport, m);
+  };
+
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} />
+    <div id="app-root" className={`theme-${theme} flex h-screen flex-col bg-background text-foreground`}>
+      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar removed */}
 
         <main className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex items-center bg-gray-100 border-b">
+          <div className="flex items-center bg-background border-b border-border">
             <button
               onClick={() => setShowGCode(false)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 !showGCode
-                  ? 'border-blue-500 text-blue-600 bg-white'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Canvas
-            </button>
+                    ? 'border-blue-500 text-blue-600 bg-background'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Canvas
+              </button>
             {gcodeData && (
               <>
                 <button
                   onClick={() => setShowGCode(true)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     showGCode
-                      ? 'border-blue-500 text-blue-600 bg-white'
+                      ? 'border-blue-500 text-blue-600 bg-background'
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -133,7 +143,7 @@ export default function App() {
                 aria-expanded={controlsVisible}
                 aria-controls="controls-panel"
                 onClick={() => setControlsVisible(prev => !prev)}
-                className="ml-auto rounded-full border px-3 py-1 text-xs font-medium cursor-pointer bg-gray-100 border-gray-300 text-gray-700"
+                className="ml-auto rounded-full border px-3 py-1 text-xs font-medium cursor-pointer bg-background border-border text-foreground"
               >
                 {controlsVisible ? 'Hide Controls' : 'Show Controls'}
               </button>
@@ -160,7 +170,7 @@ export default function App() {
             />
           )}
 
-          <div className="flex-1 overflow-hidden">
+          <div className={`flex-1 ${showGCode ? 'overflow-auto' : 'overflow-hidden'}`}>
             {!showGCode ? (
           <CanvasEditor
             tool={currentTool}
@@ -174,14 +184,14 @@ export default function App() {
             strokeWidth={strokeWidth}
           />
             ) : gcodeData ? (
-              <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} />
+              <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />
             ) : null}
           </div>
         </main>
 
         <aside
           id="right-sidebar"
-          className={`${rightOpen ? 'block fixed inset-y-0 right-0 z-50 w-80' : 'hidden'} sm:block sm:static sm:z-auto sm:w-80 border-l bg-white p-4 shadow-sm overflow-y-auto`}
+          className={`${rightOpen ? 'block fixed inset-y-0 right-0 z-50 w-80' : 'hidden'} sm:block sm:static sm:z-auto sm:w-80 border-l border-border bg-background p-4 shadow-sm overflow-y-auto`}
         >
           
           <FileControls 
