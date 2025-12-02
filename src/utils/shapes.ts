@@ -41,9 +41,6 @@ export function drawShape(ctx: CanvasRenderingContext2D, shape: Shape, isSelecte
     case 'arrow':
       drawArrow(ctx, shape);
       break;
-    case 'type':
-      drawText(ctx, shape);
-      break;
   }
 
   // Draw selection outline
@@ -220,20 +217,6 @@ function drawPolygon(ctx: CanvasRenderingContext2D, shape: Shape, sides: number)
   ctx.stroke();
 }
 
-function drawText(ctx: CanvasRenderingContext2D, shape: Shape) {
-  const text = shape.text ?? 'Text';
-  const fontSize = shape.fontSize ?? 20;
-  const fontFamily = shape.fontFamily ?? 'Arial';
-  const fontStyle = shape.fontStyle ?? 'normal';
-  const fontWeight = shape.fontWeight ?? 'normal';
-  const x = (shape.startPoint?.x ?? shape.x ?? 0);
-  const y = (shape.startPoint?.y ?? shape.y ?? 0);
-  ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
-  ctx.fillStyle = shape.strokeColor || '#000000';
-  ctx.textBaseline = 'top';
-  ctx.fillText(text, x, y);
-}
-
 function drawArrow(ctx: CanvasRenderingContext2D, shape: Shape) {
   if (!shape.startPoint || !shape.endPoint) return;
   
@@ -292,14 +275,6 @@ export function getShapeBounds(shape: Shape): { x: number; y: number; width: num
       width: maxX - minX,
       height: maxY - minY,
     };
-  } else if (shape.type === 'type') {
-    const text = shape.text ?? 'Text';
-    const fontSize = shape.fontSize ?? 20;
-    const approxWidth = text.length * fontSize * 0.6;
-    const approxHeight = fontSize;
-    const x = shape.startPoint?.x ?? shape.x ?? 0;
-    const y = shape.startPoint?.y ?? shape.y ?? 0;
-    return { x, y, width: approxWidth, height: approxHeight };
   } else {
     return {
       x: shape.x ?? 0,

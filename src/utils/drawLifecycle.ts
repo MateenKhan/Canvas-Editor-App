@@ -12,25 +12,6 @@ export function createShape(
   strokeWidth: number,
   extras?: Partial<Shape>
 ): Shape {
-  if (tool === 'type') {
-    return {
-      id: Date.now().toString(),
-      type: tool,
-      points: [],
-      strokeColor,
-      fillColor,
-      strokeWidth,
-      startPoint: point,
-      x: point.x,
-      y: point.y,
-      text: 'Text',
-      fontSize: 20,
-      fontFamily: 'Arial',
-      fontStyle: 'normal',
-      fontWeight: 'normal',
-      ...(extras || {}),
-    } as Shape;
-  }
   return {
     id: Date.now().toString(),
     type: tool,
@@ -46,9 +27,7 @@ export function createShape(
 
 export function updateShape(tool: Tool, shape: Shape, point: Point): Shape {
   const updated = { ...shape } as Shape;
-  if (tool === 'type') {
-    return updated;
-  } else if (tool === 'freeLine') {
+  if (tool === 'freeLine') {
     updated.points = [...(updated.points || []), point];
   } else if (tool === 'straightLine') {
     updated.endPoint = point;
