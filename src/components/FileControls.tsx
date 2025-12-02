@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Shape } from '../types';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Upload, Download, FileCode, Info, Eye } from 'lucide-react';
 import { parseSVG } from '../utils/svg';
@@ -15,8 +14,8 @@ interface FileControlsProps {
 }
 
 export function FileControls({ shapes, selectedShapeId, onShapesChange, onViewGCode }: FileControlsProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [margin, setMargin] = useState(5);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenSVG = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,13 +194,14 @@ For detailed instructions, see INSTRUCTIONS.md file.
         <div className="space-y-3">
           <div>
             <Label htmlFor="margin">Margin (mm)</Label>
-            <Input
+            <input
               id="margin"
               type="number"
               min="0"
               step="0.1"
               value={margin}
-              onChange={(e) => setMargin(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMargin(Number(e.target.value))}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
 

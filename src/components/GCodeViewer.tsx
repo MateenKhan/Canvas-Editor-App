@@ -1,6 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Download, Play, Pause, RotateCcw, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, FileCode, Shapes } from 'lucide-react';
 import {
@@ -31,7 +31,7 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
   const [currentStep, setCurrentStep] = useState(0);
   const [speed, setSpeed] = useState(100);
   const [moves, setMoves] = useState<GCodeMove[]>([]);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
   const [viewerScale, setViewerScale] = useState(1);
   const [playDirection, setPlayDirection] = useState<1 | -1>(1);
   const [editedGcode, setEditedGcode] = useState(gcode);
@@ -349,7 +349,7 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
         <Accordion
           type="multiple"
           value={accordionOpen}
-          onValueChange={(val) => setAccordionOpen(Array.isArray(val) ? val : [])}
+          onValueChange={(val: string | string[]) => setAccordionOpen(Array.isArray(val) ? val : [])}
           className="w-full"
         >
           <AccordionItem value="simulation">
@@ -599,8 +599,8 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
               <AccordionContent>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Input value={findText} onChange={e => setFindText(e.target.value)} className="flex-1" placeholder="Find" />
-                  <Input value={replaceText} onChange={e => setReplaceText(e.target.value)} className="flex-1" placeholder="Replace" />
+                  <input value={findText} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFindText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Find" />
+                  <input value={replaceText} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReplaceText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Replace" />
                   <Button
                     variant="outline"
                     size="sm"

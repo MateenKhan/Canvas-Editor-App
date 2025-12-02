@@ -1,13 +1,8 @@
 import React, { useState } from 'react';
 import { Tool, Shape } from '../types';
 import { Button } from './ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from './ui/popover';
 import { Label } from './ui/label';
-import { Input } from './ui/input';
+import { Palette, Move, Square, Circle, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Minus, Pencil } from 'lucide-react';
 import { SelectionTools } from './SelectionTools';
 import { DrawingTools } from './DrawingTools';
 
@@ -30,6 +25,9 @@ interface ToolbarProps {
   selectedShape?: Shape;
   onUpdateSelectedDimensions: (updates: Partial<Shape>) => void;
   onClearSelection: () => void;
+  shapes: Shape[];
+  onShapesChange: (shapes: Shape[]) => void;
+  onUnitChange: (unit: 'mm' | 'in' | 'ft') => void;
 }
 
 export function Toolbar({
@@ -51,6 +49,9 @@ export function Toolbar({
   selectedShape,
   onUpdateSelectedDimensions,
   onClearSelection,
+  shapes,
+  onShapesChange,
+  onUnitChange
 }: ToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
@@ -69,6 +70,9 @@ export function Toolbar({
         selectedShape={selectedShape}
         onUpdateSelectedDimensions={onUpdateSelectedDimensions}
         onClearSelection={onClearSelection}
+        shapes={shapes}
+        onShapesChange={onShapesChange}
+        onUnitChange={onUnitChange}
       />
 
       <div className="my-2 h-px w-full bg-gray-200" />

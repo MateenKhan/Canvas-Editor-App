@@ -37,8 +37,7 @@ export default function App() {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [textFontFamily, setTextFontFamily] = useState<string>('Arial');
-  const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
+  // Removed text tool related state variables
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showGCode, setShowGCode] = useState(false);
@@ -47,6 +46,13 @@ export default function App() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [theme, setTheme] = useState('galaxy');
   const [currentUnit, setCurrentUnit] = useState<'mm' | 'in' | 'ft'>('mm'); // Add unit state
+  // Removed textToCreate state
+
+  // Removed text tool related functions
+
+  // Removed textPopupFunctionRef
+
+  // Removed text tool related functions
 
   React.useEffect(() => {
     if (shapes.length === 0) {
@@ -68,7 +74,7 @@ export default function App() {
     }
   }, []);
 
-  
+  // Removed text tool related functions
 
   const handleUndo = () => {
     undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
@@ -185,13 +191,10 @@ export default function App() {
               onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
               onClearSelection={handleClearSelection}
               onSimulate={handleSimulateFromCanvas}
-              textFontFamily={textFontFamily}
-              textFontStyle={textFontStyle}
-              onTextFontFamilyChange={setTextFontFamily}
-              onTextFontStyleChange={setTextFontStyle}
               shapes={shapes}
               onShapesChange={handleShapesChange}
-              onUnitChange={handleUnitChange} // Pass unit change handler
+              onUnitChange={handleUnitChange}
+              // Removed text tool related props
             />
           )}
 
@@ -204,13 +207,12 @@ export default function App() {
             selectedShapeIds={selectedShapeIds}
             onSelectionChange={handleSelectionChange}
             onSelectionCommit={handleSelectionCommit}
-            onToolChange={handleToolChange} // Pass onToolChange prop
+            onToolChange={handleToolChange}
             strokeColor={strokeColor}
             fillColor={fillColor}
             strokeWidth={strokeWidth}
-            textFontFamily={textFontFamily}
-            textFontStyle={textFontStyle}
-            currentUnit={currentUnit} // Pass current unit to CanvasEditor
+            currentUnit={currentUnit}
+            // Removed text tool related props
           />
             ) : gcodeData ? (
               <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />

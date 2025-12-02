@@ -10,7 +10,6 @@ import { useViewTransform } from '../hooks/useViewTransform';
 import { getResizeHandleHit } from '../utils/resize';
 import { mergeSelection } from '../utils/selection';
 import { createShape, updateShape } from '../utils/drawLifecycle';
-import { Input } from './ui/input';
 
 interface CanvasEditorProps {
   tool: Tool;
@@ -19,14 +18,11 @@ interface CanvasEditorProps {
   selectedShapeIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onSelectionCommit: (ids: string[]) => void;
-  onToolChange: (tool: Tool) => void; // Add onToolChange prop
+  onToolChange: (tool: Tool) => void;
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;
-  textFontFamily?: string;
-  textFontStyle?: 'normal' | 'italic';
-  textFontWeight?: 'normal' | 'bold';
-  currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
+  currentUnit?: 'mm' | 'in' | 'ft';
 }
 
 export function CanvasEditor({
@@ -36,14 +32,11 @@ export function CanvasEditor({
   selectedShapeIds,
   onSelectionChange,
   onSelectionCommit,
-  onToolChange, // Add onToolChange to destructuring
+  onToolChange,
   strokeColor,
   fillColor,
   strokeWidth,
-  textFontFamily,
-  textFontStyle,
-  textFontWeight,
-  currentUnit = 'mm'
+  currentUnit = 'mm',
 }: CanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,7 +60,6 @@ export function CanvasEditor({
   const [selectionMode, setSelectionMode] = useState<'contains' | 'intersects'>('intersects');
   const [lastTapTime, setLastTapTime] = useState<number | null>(null);
   const [lastTapPoint, setLastTapPoint] = useState<Point | null>(null);
-  const [editingText, setEditingText] = useState<{ id: string; value: string } | null>(null);
 
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number): Point => {
@@ -103,6 +95,28 @@ export function CanvasEditor({
       canvas.removeEventListener('wheel', handleWheelEvent);
     };
   }, [zoomToAnchor]);
+
+  // Handle shape creation from drawing (removed text tool related code)
+  useEffect(() => {
+    if (currentShape && !isDrawing) {
+      // Only create shapes for valid tools (text tool removed)
+      if (currentShape.type !== 'select') { // Changed condition since 'type' is no longer a valid tool
+        if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+          onShapesChange([...shapes, currentShape]);
+        } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
+          onShapesChange([...shapes, currentShape]);
+        }
+      }
+      
+      // Automatically select the newly created shape and switch to select tool
+      if (currentShape.id) {
+        onSelectionChange([currentShape.id]);
+        onSelectionCommit([currentShape.id]);
+        // Switch to select tool after drawing
+        onToolChange('select');
+      }
+    }
+  }, [currentShape, isDrawing, shapes, onShapesChange, onSelectionChange, onSelectionCommit, onToolChange]);
 
   // Redraw canvas
   const redraw = useCallback(() => {
@@ -285,14 +299,16 @@ export function CanvasEditor({
         const updated = { ...s } as Shape;
         if (updated.type === 'freeLine') {
           updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-        }
-        updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
-        updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
-        if (updated.startPoint) {
-          updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
-        }
-        if (updated.endPoint) {
-          updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+        } else {
+          // For other shapes (text shape handling removed since text tool is removed)
+          updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
+          updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
+          if (updated.startPoint) {
+            updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
+          }
+          if (updated.endPoint) {
+            updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+          }
         }
         return updated;
       });
@@ -360,15 +376,14 @@ export function CanvasEditor({
           setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
         }
       } else {
-        // Start drawing
+        // Start drawing (no special handling needed for text tool since it's removed)
         setIsDrawing(true);
         const newShape = createShape(
           tool,
           point,
           strokeColor,
           fillColor,
-          strokeWidth,
-          tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight } : undefined
+          strokeWidth
         );
         setCurrentShape(newShape);
       }
@@ -450,8 +465,7 @@ export function CanvasEditor({
         point,
         strokeColor,
         fillColor,
-        strokeWidth,
-        tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight } : undefined
+        strokeWidth
       );
       setCurrentShape(newShape);
     }
@@ -487,14 +501,16 @@ export function CanvasEditor({
           const updated = { ...s } as Shape;
           if (updated.type === 'freeLine') {
             updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-          }
-          updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
-          updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
-          if (updated.startPoint) {
-            updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
-          }
-          if (updated.endPoint) {
-            updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+          } else {
+            // For other shapes (text shape handling removed since text tool is removed)
+            updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
+            updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
+            if (updated.startPoint) {
+              updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
+            }
+            if (updated.endPoint) {
+              updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+            }
           }
           return updated;
         });
@@ -505,76 +521,111 @@ export function CanvasEditor({
     }
 
     if (isResizing && resizeTargetId && resizeHandle && resizeStartPoint) {
-      const idx = shapes.findIndex(s => s.id === resizeTargetId);
-      if (idx !== -1) {
-        const base = { ...(originalShape || shapes[idx]) } as Shape;
-        const dxTotal = point.x - resizeStartPoint.x;
-        const dyTotal = point.y - resizeStartPoint.y;
-        const target = { ...base } as Shape;
-        if (target.type === 'straightLine' || target.type === 'arrow') {
-          if (resizeHandle === 'start' && base.startPoint) {
-            target.startPoint = { x: (base.startPoint.x ?? 0) + dxTotal, y: (base.startPoint.y ?? 0) + dyTotal };
-            if (target.type === 'straightLine') target.points = [target.startPoint!, base.endPoint!];
-          } else if (resizeHandle === 'end' && base.endPoint) {
-            target.endPoint = { x: (base.endPoint.x ?? 0) + dxTotal, y: (base.endPoint.y ?? 0) + dyTotal };
-            if (target.type === 'straightLine') target.points = [base.startPoint!, target.endPoint!];
-          }
-        } else {
-          const x = base.x ?? 0;
-          const y = base.y ?? 0;
-          const w = base.width ?? 0;
-          const h = base.height ?? 0;
-          let nx = x;
-          let ny = y;
-          let nw = w;
-          let nh = h;
-          if (resizeHandle.includes('e')) { nw = Math.max(1, w + dxTotal); }
-          if (resizeHandle.includes('s')) { nh = Math.max(1, h + dyTotal); }
-          if (resizeHandle.includes('w')) { nx = x + dxTotal; nw = Math.max(1, w - dxTotal); }
-          if (resizeHandle.includes('n')) { ny = y + dyTotal; nh = Math.max(1, h - dyTotal); }
-          target.x = nx;
-          target.y = ny;
-          target.width = nw;
-          target.height = nh;
-        }
-        const updated = shapes.map(s => (s.id === resizeTargetId ? target : s));
-        onShapesChange(updated);
-      }
-      return;
-    }
+      const dx = point.x - resizeStartPoint.x;
+      const dy = point.y - resizeStartPoint.y;
+      if (dx !== 0 || dy !== 0) {
+        const resized = shapes.map(s => {
+          if (s.id !== resizeTargetId) return s;
+          if (!originalShape) return s;
+          const updated = { ...s } as Shape;
+          if (updated.type === 'freeLine') {
+            // FreeLine shapes cannot be resized
+            return updated;
+          } else if (updated.type === 'straightLine' || updated.type === 'arrow') {
+            // Resize line shapes
+            if (resizeHandle === 'start') {
+              updated.startPoint = {
+                x: (originalShape.startPoint?.x ?? 0) + dx,
+                y: (originalShape.startPoint?.y ?? 0) + dy
+              };
+            } else if (resizeHandle === 'end') {
+              updated.endPoint = {
+                x: (originalShape.endPoint?.x ?? 0) + dx,
+                y: (originalShape.endPoint?.y ?? 0) + dy
+              };
+            }
+            updated.points = [updated.startPoint!, updated.endPoint!];
+          } else {
+            // Resize other shapes
+            const origBounds = getShapeBounds(originalShape);
+            let newWidth = origBounds.width;
+            let newHeight = origBounds.height;
+            let newX = origBounds.x;
+            let newY = origBounds.y;
 
-    if (isSelecting && selectStart && tool === 'select') {
-      const x0 = selectStart.x;
-      const y0 = selectStart.y;
-      const x1 = point.x;
-      const y1 = point.y;
-      const rect = {
-        x: Math.min(x0, x1),
-        y: Math.min(y0, y1),
-        width: Math.abs(x1 - x0),
-        height: Math.abs(y1 - y0),
-      };
-      const isRTL = x1 < x0;
-      const mode: 'contains' | 'intersects' = isRTL ? 'intersects' : 'contains';
-      setSelectionMode(mode);
-      const regionIds = shapes
-        .filter(s => (mode === 'contains' ? containsRect(rect, getShapeBounds(s)) : intersectsRect(rect, getShapeBounds(s))))
-        .map(s => s.id);
-      const minW = 3 / transform.scale;
-      const minH = 3 / transform.scale;
-      if (regionIds.length > 0 && (rect.width >= minW || rect.height >= minH)) {
-        setSelectionRect(rect);
-      } else {
-        setSelectionRect(null);
+            if (resizeHandle.includes('e')) {
+              newWidth = Math.max(1, origBounds.width + dx);
+            } else if (resizeHandle.includes('w')) {
+              newWidth = Math.max(1, origBounds.width - dx);
+              newX = origBounds.x + dx;
+            }
+
+            if (resizeHandle.includes('s')) {
+              newHeight = Math.max(1, origBounds.height + dy);
+            } else if (resizeHandle.includes('n')) {
+              newHeight = Math.max(1, origBounds.height - dy);
+              newY = origBounds.y + dy;
+            }
+
+            updated.x = newX;
+            updated.y = newY;
+            updated.width = newWidth;
+            updated.height = newHeight;
+            
+            // Update start/end points if they exist
+            if (updated.startPoint) {
+              updated.startPoint = { x: newX, y: newY };
+            }
+            if (updated.endPoint) {
+              updated.endPoint = { x: newX + newWidth, y: newY + newHeight };
+            }
+          }
+          return updated;
+        });
+        onShapesChange(resized);
       }
-      const combined = mergeSelection(selectedShapeIds, regionIds, e.shiftKey, e.ctrlKey || e.metaKey);
-      onSelectionChange(combined);
       return;
     }
 
     if (isDrawing && currentShape) {
-      const updated = updateShape(tool, currentShape, point);
-      setCurrentShape(updated);
+      const updatedShape = updateShape(tool, currentShape, point);
+      setCurrentShape(updatedShape);
+    }
+
+    if (isSelecting && selectStart) {
+      const width = point.x - selectStart.x;
+      const height = point.y - selectStart.y;
+      const rect = {
+        x: width < 0 ? point.x : selectStart.x,
+        y: height < 0 ? point.y : selectStart.y,
+        width: Math.abs(width),
+        height: Math.abs(height)
+      };
+      setSelectionRect(rect);
+      
+      // Find shapes that intersect with the selection rectangle
+      const selectedIds: string[] = [];
+      shapes.forEach(shape => {
+        const bounds = getShapeBounds(shape);
+        const shapeRect = {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height
+        };
+        
+        if (selectionMode === 'contains') {
+          if (containsRect(rect, shapeRect)) {
+            selectedIds.push(shape.id);
+          }
+        } else {
+          if (intersectsRect(rect, shapeRect)) {
+            selectedIds.push(shape.id);
+          }
+        }
+      });
+      
+      onSelectionChange(selectedIds);
     }
   };
 
@@ -594,24 +645,10 @@ export function CanvasEditor({
       const dist = Math.hypot(dx, dy);
       const midX = (touches[0].clientX + touches[1].clientX) / 2 - rect.left;
       const midY = (touches[0].clientY + touches[1].clientY) / 2 - rect.top;
-
-      const rawNewScale = transform.scale * (dist / lastPinchDist);
-      const newScale = Math.max(0.1, Math.min(10, rawNewScale));
-      const scaleChange = newScale / transform.scale;
-
-      const newTranslateX = midX - (midX - transform.translateX) * scaleChange;
-      const newTranslateY = midY - (midY - transform.translateY) * scaleChange;
-
-      const dxMid = midX - lastPanPoint.x;
-      const dyMid = midY - lastPanPoint.y;
-
-      setTransform({
-        scale: newScale,
-        translateX: newTranslateX + dxMid,
-        translateY: newTranslateY + dyMid,
-      });
+      
+      const zoomFactor = dist / lastPinchDist;
+      zoomToAnchor(midX, midY, zoomFactor);
       setLastPinchDist(dist);
-      setLastPanPoint({ x: midX, y: midY });
       return;
     }
 
@@ -620,33 +657,43 @@ export function CanvasEditor({
     const point = screenToCanvas(screenX, screenY);
 
     if (isSelecting && selectStart && tool === 'select') {
-      const x0 = selectStart.x;
-      const y0 = selectStart.y;
-      const x1 = point.x;
-      const y1 = point.y;
-      const rectSel = {
-        x: Math.min(x0, x1),
-        y: Math.min(y0, y1),
-        width: Math.abs(x1 - x0),
-        height: Math.abs(y1 - y0),
+      const width = point.x - selectStart.x;
+      const height = point.y - selectStart.y;
+      const rect = {
+        x: width < 0 ? point.x : selectStart.x,
+        y: height < 0 ? point.y : selectStart.y,
+        width: Math.abs(width),
+        height: Math.abs(height)
       };
-      const isRTL = x1 < x0;
-      const mode: 'contains' | 'intersects' = isRTL ? 'intersects' : 'contains';
-      setSelectionMode(mode);
-      const regionIds = shapes
-        .filter(s => (mode === 'contains' ? containsRect(rectSel, getShapeBounds(s)) : intersectsRect(rectSel, getShapeBounds(s))))
-        .map(s => s.id);
-      const minW = 3 / transform.scale;
-      const minH = 3 / transform.scale;
-      if (regionIds.length > 0 && (rectSel.width >= minW || rectSel.height >= minH)) {
-        setSelectionRect(rectSel);
-      } else {
-        setSelectionRect(null);
-      }
-      onSelectionChange(regionIds);
+      setSelectionRect(rect);
+      
+      // Find shapes that intersect with the selection rectangle
+      const selectedIds: string[] = [];
+      shapes.forEach(shape => {
+        const bounds = getShapeBounds(shape);
+        const shapeRect = {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height
+        };
+        
+        if (selectionMode === 'contains') {
+          if (containsRect(rect, shapeRect)) {
+            selectedIds.push(shape.id);
+          }
+        } else {
+          if (intersectsRect(rect, shapeRect)) {
+            selectedIds.push(shape.id);
+          }
+        }
+      });
+      
+      onSelectionChange(selectedIds);
       return;
     }
 
+    // Handle dragging on touch devices
     if (isDragging && selectedShapeIds.length > 0 && tool === 'select') {
       const dx = point.x - lastDragPoint.x;
       const dy = point.y - lastDragPoint.y;
@@ -656,14 +703,16 @@ export function CanvasEditor({
           const updated = { ...s } as Shape;
           if (updated.type === 'freeLine') {
             updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
-          }
-          updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
-          updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
-          if (updated.startPoint) {
-            updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
-          }
-          if (updated.endPoint) {
-            updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+          } else {
+            // For other shapes (text shape handling removed since text tool is removed)
+            updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
+            updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
+            if (updated.startPoint) {
+              updated.startPoint = { x: (updated.startPoint.x ?? 0) + dx, y: (updated.startPoint.y ?? 0) + dy };
+            }
+            if (updated.endPoint) {
+              updated.endPoint = { x: (updated.endPoint.x ?? 0) + dx, y: (updated.endPoint.y ?? 0) + dy };
+            }
           }
           return updated;
         });
@@ -675,99 +724,127 @@ export function CanvasEditor({
 
     // Handle resizing on touch devices
     if (isResizing && resizeTargetId && resizeHandle && resizeStartPoint) {
-      const idx = shapes.findIndex(s => s.id === resizeTargetId);
-      if (idx !== -1) {
-        const base = { ...(originalShape || shapes[idx]) } as Shape;
-        const dxTotal = point.x - resizeStartPoint.x;
-        const dyTotal = point.y - resizeStartPoint.y;
-        const target = { ...base } as Shape;
-        if (target.type === 'straightLine' || target.type === 'arrow') {
-          if (resizeHandle === 'start' && base.startPoint) {
-            target.startPoint = { x: (base.startPoint.x ?? 0) + dxTotal, y: (base.startPoint.y ?? 0) + dyTotal };
-            if (target.type === 'straightLine') target.points = [target.startPoint!, base.endPoint!];
-          } else if (resizeHandle === 'end' && base.endPoint) {
-            target.endPoint = { x: (base.endPoint.x ?? 0) + dxTotal, y: (base.endPoint.y ?? 0) + dyTotal };
-            if (target.type === 'straightLine') target.points = [base.startPoint!, target.endPoint!];
+      const dx = point.x - resizeStartPoint.x;
+      const dy = point.y - resizeStartPoint.y;
+      if (dx !== 0 || dy !== 0) {
+        const resized = shapes.map(s => {
+          if (s.id !== resizeTargetId) return s;
+          if (!originalShape) return s;
+          const updated = { ...s } as Shape;
+          if (updated.type === 'freeLine') {
+            // FreeLine shapes cannot be resized
+            return updated;
+          } else if (updated.type === 'straightLine' || updated.type === 'arrow') {
+            // Resize line shapes
+            if (resizeHandle === 'start') {
+              updated.startPoint = {
+                x: (originalShape.startPoint?.x ?? 0) + dx,
+                y: (originalShape.startPoint?.y ?? 0) + dy
+              };
+            } else if (resizeHandle === 'end') {
+              updated.endPoint = {
+                x: (originalShape.endPoint?.x ?? 0) + dx,
+                y: (originalShape.endPoint?.y ?? 0) + dy
+              };
+            }
+            updated.points = [updated.startPoint!, updated.endPoint!];
+          } else {
+            // Resize other shapes
+            const origBounds = getShapeBounds(originalShape);
+            let newWidth = origBounds.width;
+            let newHeight = origBounds.height;
+            let newX = origBounds.x;
+            let newY = origBounds.y;
+
+            if (resizeHandle.includes('e')) {
+              newWidth = Math.max(1, origBounds.width + dx);
+            } else if (resizeHandle.includes('w')) {
+              newWidth = Math.max(1, origBounds.width - dx);
+              newX = origBounds.x + dx;
+            }
+
+            if (resizeHandle.includes('s')) {
+              newHeight = Math.max(1, origBounds.height + dy);
+            } else if (resizeHandle.includes('n')) {
+              newHeight = Math.max(1, origBounds.height - dy);
+              newY = origBounds.y + dy;
+            }
+
+            updated.x = newX;
+            updated.y = newY;
+            updated.width = newWidth;
+            updated.height = newHeight;
+            
+            // Update start/end points if they exist
+            if (updated.startPoint) {
+              updated.startPoint = { x: newX, y: newY };
+            }
+            if (updated.endPoint) {
+              updated.endPoint = { x: newX + newWidth, y: newY + newHeight };
+            }
           }
-        } else {
-          const x = base.x ?? 0;
-          const y = base.y ?? 0;
-          const w = base.width ?? 0;
-          const h = base.height ?? 0;
-          let nx = x;
-          let ny = y;
-          let nw = w;
-          let nh = h;
-          if (resizeHandle.includes('e')) { nw = Math.max(1, w + dxTotal); }
-          if (resizeHandle.includes('s')) { nh = Math.max(1, h + dyTotal); }
-          if (resizeHandle.includes('w')) { nx = x + dxTotal; nw = Math.max(1, w - dxTotal); }
-          if (resizeHandle.includes('n')) { ny = y + dyTotal; nh = Math.max(1, h - dyTotal); }
-          target.x = nx;
-          target.y = ny;
-          target.width = nw;
-          target.height = nh;
-        }
-        const updated = shapes.map(s => (s.id === resizeTargetId ? target : s));
-        onShapesChange(updated);
+          return updated;
+        });
+        onShapesChange(resized);
       }
       return;
     }
 
     if (isDrawing && currentShape) {
-      const updated = updateShape(tool, currentShape, point);
-      setCurrentShape(updated);
+      const updatedShape = updateShape(tool, currentShape, point);
+      setCurrentShape(updatedShape);
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (e.button === 1) {
-      setIsPanning(false);
+    setIsPanning(false);
+    setLastPanPoint({ x: 0, y: 0 });
+    
+    if (isSelecting) {
+      setIsSelecting(false);
+      setSelectStart(null);
+      setSelectionRect(null);
+      onSelectionCommit(selectedShapeIds);
       return;
     }
-
-    if (isDragging) {
-      setIsDragging(false);
-      return;
-    }
-
+    
     if (isResizing) {
       setIsResizing(false);
       setResizeTargetId(null);
       setResizeHandle(null);
       setOriginalShape(null);
       setResizeStartPoint(null);
-      return;
-    }
-
-    if (isSelecting) {
       onSelectionCommit(selectedShapeIds);
-      setIsSelecting(false);
-      setSelectStart(null);
-      setSelectionRect(null);
       return;
     }
-
+    
+    if (isDragging) {
+      setIsDragging(false);
+      setLastDragPoint({ x: 0, y: 0 });
+      onSelectionCommit(selectedShapeIds);
+      return;
+    }
+    
     if (isDrawing && currentShape) {
       let newShapeId: string | null = null;
       
-      if (currentShape.type === 'type') {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-        setEditingText({ id: currentShape.id, value: currentShape.text ?? '' });
-      } else if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-      } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-      }
-      
-      // Automatically select the newly created shape and switch to select tool
-      if (newShapeId) {
-        onSelectionChange([newShapeId]);
-        onSelectionCommit([newShapeId]);
-        // Switch to select tool after drawing
-        onToolChange('select');
+      // Only create shapes for valid tools (text tool removed)
+      if (currentShape.type !== 'select') { // Changed condition since 'type' is no longer a valid tool
+        if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+          onShapesChange([...shapes, currentShape]);
+          newShapeId = currentShape.id;
+        } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
+          onShapesChange([...shapes, currentShape]);
+          newShapeId = currentShape.id;
+        }
+        
+        // Automatically select the newly created shape and switch to select tool
+        if (newShapeId) {
+          onSelectionChange([newShapeId]);
+          onSelectionCommit([newShapeId]);
+          // Switch to select tool after drawing
+          onToolChange('select');
+        }
       }
       
       setCurrentShape(null);
@@ -786,42 +863,58 @@ export function CanvasEditor({
     if (canvas) {
       const rect = canvas.getBoundingClientRect();
       const ct = e.changedTouches;
-      if (ct && ct.length === 1) {
+      if (ct.length > 0) {
+        const now = Date.now();
         const screenX = ct[0].clientX - rect.left;
         const screenY = ct[0].clientY - rect.top;
         const point = screenToCanvas(screenX, screenY);
-        const now = Date.now();
-        const isDouble = lastTapTime !== null && now - lastTapTime < 350 && lastTapPoint !== null && Math.hypot(point.x - lastTapPoint.x, point.y - lastTapPoint.y) < 10 / transform.scale;
-        setLastTapTime(now);
-        setLastTapPoint(point);
-        if (isDouble) {
-          let hitId: string | null = null;
-          for (let i = shapes.length - 1; i >= 0; i--) {
-            if (isPointInShape(point, shapes[i])) { hitId = shapes[i].id; break; }
-          }
-          if (!hitId) {
-            onSelectionChange([]);
-            onSelectionCommit([]);
-            setIsSelecting(false);
-            setSelectStart(null);
-            setSelectionRect(null);
-            return;
+        
+        if (lastTapTime && lastTapPoint && now - lastTapTime < 300) {
+          const distance = Math.sqrt(
+            Math.pow(point.x - lastTapPoint.x, 2) + 
+            Math.pow(point.y - lastTapPoint.y, 2)
+          );
+          
+          if (distance < 20) {
+            // Double tap detected
+            if (tool === 'select') {
+              let foundId: string | null = null;
+              for (let i = shapes.length - 1; i >= 0; i--) {
+                if (isPointInShape(point, shapes[i])) {
+                  foundId = shapes[i].id;
+                  break;
+                }
+              }
+              
+              if (foundId) {
+                // Just select the shape
+                onSelectionChange([foundId]);
+                onSelectionCommit([foundId]);
+              } else {
+                // No shape found, just clear selection
+                onSelectionChange([]);
+                onSelectionCommit([]);
+              }
+            } else {
+              // Switch to select tool
+              onToolChange('select');
+            }
           }
         }
+        
+        setLastTapTime(now);
+        setLastTapPoint(point);
       }
     }
     
-    if (isDragging) {
-      setIsDragging(false);
-      return;
-    }
     if (isSelecting) {
-      onSelectionCommit(selectedShapeIds);
       setIsSelecting(false);
       setSelectStart(null);
       setSelectionRect(null);
+      onSelectionCommit(selectedShapeIds);
       return;
     }
+    
     // Handle resize end on touch devices
     if (isResizing) {
       setIsResizing(false);
@@ -829,29 +922,37 @@ export function CanvasEditor({
       setResizeHandle(null);
       setOriginalShape(null);
       setResizeStartPoint(null);
+      onSelectionCommit(selectedShapeIds);
       return;
     }
+    
+    if (isDragging) {
+      setIsDragging(false);
+      setLastDragPoint({ x: 0, y: 0 });
+      onSelectionCommit(selectedShapeIds);
+      return;
+    }
+    
     if (isDrawing && currentShape) {
       let newShapeId: string | null = null;
       
-      if (currentShape.type === 'type') {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-        setEditingText({ id: currentShape.id, value: currentShape.text ?? '' });
-      } else if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-      } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
-        onShapesChange([...shapes, currentShape]);
-        newShapeId = currentShape.id;
-      }
-      
-      // Automatically select the newly created shape and switch to select tool
-      if (newShapeId) {
-        onSelectionChange([newShapeId]);
-        onSelectionCommit([newShapeId]);
-        // Switch to select tool after drawing
-        onToolChange('select');
+      // Only create shapes for valid tools (text tool removed)
+      if (currentShape.type !== 'select') { // Changed condition since 'type' is no longer a valid tool
+        if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+          onShapesChange([...shapes, currentShape]);
+          newShapeId = currentShape.id;
+        } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
+          onShapesChange([...shapes, currentShape]);
+          newShapeId = currentShape.id;
+        }
+        
+        // Automatically select the newly created shape and switch to select tool
+        if (newShapeId) {
+          onSelectionChange([newShapeId]);
+          onSelectionCommit([newShapeId]);
+          // Switch to select tool after drawing
+          onToolChange('select');
+        }
       }
       
       setCurrentShape(null);
@@ -892,28 +993,17 @@ export function CanvasEditor({
       }
     }
     if (!foundId) {
+      // No shape found, just clear selection
       onSelectionChange([]);
       onSelectionCommit([]);
       setIsSelecting(false);
       setSelectStart(null);
       setSelectionRect(null);
     } else {
-      const s = shapes.find(x => x.id === foundId);
-      if (s && s.type === 'type') {
-        setEditingText({ id: s.id, value: s.text ?? '' });
-      }
+      // Just select the shape
+      onSelectionChange([foundId]);
+      onSelectionCommit([foundId]);
     }
-  };
-
-  const commitTextEdit = () => {
-    if (!editingText) return;
-    const updated = shapes.map(s => (s.id === editingText.id ? { ...s, text: editingText.value } : s));
-    onShapesChange(updated);
-    setEditingText(null);
-  };
-
-  const cancelTextEdit = () => {
-    setEditingText(null);
   };
 
   return (
@@ -938,27 +1028,6 @@ export function CanvasEditor({
         className="cursor-crosshair"
         style={{ cursor: tool === 'select' ? 'default' : 'crosshair', touchAction: 'none' }}
       />
-      {editingText && (() => {
-        const s = shapes.find(x => x.id === editingText.id);
-        if (!s) return null as any;
-        const x = (s.startPoint?.x ?? s.x ?? 0) * transform.scale + transform.translateX;
-        const y = (s.startPoint?.y ?? s.y ?? 0) * transform.scale + transform.translateY;
-        const fs = (s.fontSize ?? 20) * transform.scale;
-        const w = Math.max(50, Math.round((editingText.value.length || 1) * fs * 0.6));
-        return (
-          <Input
-            autoFocus
-            value={editingText.value}
-            onChange={(e) => setEditingText({ id: editingText.id, value: e.target.value })}
-            onBlur={commitTextEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitTextEdit();
-              if (e.key === 'Escape') cancelTextEdit();
-            }}
-            style={{ position: 'absolute', left: x, top: y, fontSize: fs, width: w, color: s.strokeColor || '#000', backgroundColor: 'rgba(255,255,255,0.95)', fontFamily: s.fontFamily || 'Arial', fontStyle: s.fontStyle || 'normal', fontWeight: s.fontWeight || 'normal' }}
-          />
-        );
-      })()}
       <ZoomControls
         transform={transform}
         setTransform={setTransform}

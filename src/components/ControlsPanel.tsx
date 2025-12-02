@@ -1,16 +1,16 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Tool, Shape } from '../types';
-import { SelectionTools } from './SelectionTools';
-import { DrawingTools } from './DrawingTools';
-import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type as TypeIcon } from 'lucide-react';
 import { Button } from './ui/button';
+import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight } from 'lucide-react';
+import { SelectionTools } from './SelectionTools';
+import { DrawingTools, DrawingToolsRef } from './DrawingTools';
 
 type ControlsMenu = 'tools' | 'basic';
 
 interface ControlsPanelProps {
   controlsVisible: boolean;
-  activeMenu: ControlsMenu;
-  setActiveMenu: (menu: ControlsMenu) => void;
+  activeMenu: 'tools' | 'basic';
+  setActiveMenu: (menu: 'tools' | 'basic') => void;
   currentTool: Tool;
   onToolChange: (tool: Tool) => void;
   onToggleSelect: () => void;
@@ -20,17 +20,13 @@ interface ControlsPanelProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  selectedShape?: { id: string; x?: number; y?: number; width?: number; height?: number } | undefined;
-  onUpdateSelectedDimensions: (updates: Partial<{ x: number; y: number; width: number; height: number }>) => void;
+  selectedShape?: Shape;
+  onUpdateSelectedDimensions: (updates: Partial<Shape>) => void;
   onClearSelection: () => void;
-  onSimulate?: () => void;
-  textFontFamily?: string;
-  textFontStyle?: 'normal' | 'italic';
-  onTextFontFamilyChange?: (family: string) => void;
-  onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
+  onSimulate: () => void;
   shapes: Shape[];
   onShapesChange: (shapes: Shape[]) => void;
-  onUnitChange: (unit: 'mm' | 'in' | 'ft') => void; // Add onUnitChange prop
+  onUnitChange: (unit: 'mm' | 'in' | 'ft') => void;
 }
 
 function getToolIcon(tool: Tool) {
@@ -57,8 +53,6 @@ function getToolIcon(tool: Tool) {
       return <Hexagon className="h-4 w-4" stroke="#7c3aed" color="#7c3aed" />;
     case 'arrow':
       return <ArrowRight className="h-4 w-4" stroke="#475569" color="#475569" />;
-    case 'type':
-      return <TypeIcon className="h-4 w-4" stroke="#4b5563" color="#4b5563" />;
     default:
       return null;
   }
@@ -81,14 +75,11 @@ export function ControlsPanel({
   onUpdateSelectedDimensions,
   onClearSelection,
   onSimulate,
-  textFontFamily,
-  textFontStyle,
-  onTextFontFamilyChange,
-  onTextFontStyleChange,
   shapes,
   onShapesChange,
-  onUnitChange // Add onUnitChange prop
+  onUnitChange,
 }: ControlsPanelProps) {
+
   return (
     <div className={`sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-2 py-2 ${controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       {controlsVisible && (
@@ -150,10 +141,6 @@ export function ControlsPanel({
                 <DrawingTools
                   currentTool={currentTool}
                   onToolChange={onToolChange}
-                  textFontFamily={textFontFamily}
-                  textFontStyle={textFontStyle}
-                  onTextFontFamilyChange={onTextFontFamilyChange}
-                  onTextFontStyleChange={onTextFontStyleChange}
                 />
               )}
             </div>

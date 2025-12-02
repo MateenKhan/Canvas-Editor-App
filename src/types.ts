@@ -10,8 +10,7 @@ export type Tool =
   | 'star'
   | 'pentagon'
   | 'hexagon'
-  | 'arrow'
-  | 'type';
+  | 'arrow';
 
 export interface Point {
   x: number;
@@ -32,11 +31,7 @@ export interface Shape {
   radius?: number;
   startPoint?: Point;
   endPoint?: Point;
-  text?: string;
-  fontSize?: number;
-  fontFamily?: string;
-  fontStyle?: 'normal' | 'italic';
-  fontWeight?: 'normal' | 'bold';
+  // Removed text related properties
 }
 
 export interface ViewTransform {

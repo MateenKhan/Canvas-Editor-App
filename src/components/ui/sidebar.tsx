@@ -8,7 +8,6 @@ import { PanelLeftIcon } from "lucide-react@0.487.0";
 import { useIsMobile } from "./use-mobile";
 import { cn } from "./utils";
 import { Button } from "./button";
-import { Input } from "./input";
 import { Separator } from "./separator";
 import {
   Sheet,
@@ -321,12 +320,12 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
 function SidebarInput({
   className,
   ...props
-}: React.ComponentProps<typeof Input>) {
+}: React.ComponentProps<"input">) {
   return (
-    <Input
+    <input
       data-slot="sidebar-input"
       data-sidebar="input"
-      className={cn("bg-background h-8 w-full shadow-none", className)}
+      className={cn("bg-background h-8 w-full shadow-none border border-input bg-transparent px-3 py-1 text-sm rounded-md focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring", className)}
       {...props}
     />
   );
