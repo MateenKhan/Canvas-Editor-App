@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { CanvasEditor } from './components/CanvasEditor';
 // import { Toolbar } from './components/Toolbar';
 import { ShapeEditor } from './components/ShapeEditor';
@@ -37,7 +37,8 @@ export default function App() {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  // Removed text tool related state variables
+  const [textFontFamily, setTextFontFamily] = useState('Arial');
+  const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showGCode, setShowGCode] = useState(false);
@@ -46,13 +47,12 @@ export default function App() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [theme, setTheme] = useState('galaxy');
   const [currentUnit, setCurrentUnit] = useState<'mm' | 'in' | 'ft'>('mm'); // Add unit state
-  // Removed textToCreate state
+  const [textToCreate, setTextToCreate] = useState<{ text: string; fontFamily: string; fontStyle: 'normal' | 'italic'; fontWeight: 'normal' | 'bold'; fontSize: number; x: number; y: number; fontUrl?: string } | null>(null);
+  const textPopupFunctionRef = useRef<{ openTextPopupAt: (x: number, y: number) => void }>(null);
 
-  // Removed text tool related functions
-
-  // Removed textPopupFunctionRef
-
-  // Removed text tool related functions
+  const handleTextCreate = (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => {
+    setTextToCreate({ text, fontFamily, fontStyle, fontWeight, fontSize, x, y, fontUrl });
+  };
 
   React.useEffect(() => {
     if (shapes.length === 0) {
@@ -74,7 +74,12 @@ export default function App() {
     }
   }, []);
 
-  // Removed text tool related functions
+  // Clear textToCreate after it's processed
+  React.useEffect(() => {
+    if (textToCreate) {
+      setTextToCreate(null);
+    }
+  }, [textToCreate]);
 
   const handleUndo = () => {
     undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
@@ -85,7 +90,6 @@ export default function App() {
   };
 
   
-
   const handleViewGCode = (gcode: string, margin: number) => {
     setGcodeData({ gcode, margin });
     setShowGCode(true);
@@ -194,7 +198,11 @@ export default function App() {
               shapes={shapes}
               onShapesChange={handleShapesChange}
               onUnitChange={handleUnitChange}
-              // Removed text tool related props
+              textFontFamily={textFontFamily}
+              textFontStyle={textFontStyle}
+              onTextFontFamilyChange={setTextFontFamily}
+              onTextFontStyleChange={setTextFontStyle}
+              onTextCreate={handleTextCreate}
             />
           )}
 
@@ -212,7 +220,15 @@ export default function App() {
             fillColor={fillColor}
             strokeWidth={strokeWidth}
             currentUnit={currentUnit}
-            // Removed text tool related props
+            textFontFamily={textFontFamily}
+            textFontStyle={textFontStyle}
+            textToCreate={textToCreate}
+            onTextCreate={handleTextCreate}
+            onRequestTextPopup={(x: number, y: number) => {
+              if (textPopupFunctionRef.current) {
+                textPopupFunctionRef.current.openTextPopupAt(x, y);
+              }
+            }}
           />
             ) : gcodeData ? (
               <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />

@@ -11,6 +11,9 @@ import { getResizeHandleHit } from '../utils/resize';
 import { mergeSelection } from '../utils/selection';
 import { createShape, updateShape } from '../utils/drawLifecycle';
 
+// Keep track of loaded fonts to avoid loading the same font multiple times
+const loadedFonts = new Set<string>();
+
 interface CanvasEditorProps {
   tool: Tool;
   shapes: Shape[];
@@ -23,6 +26,11 @@ interface CanvasEditorProps {
   fillColor: string;
   strokeWidth: number;
   currentUnit?: 'mm' | 'in' | 'ft';
+  textFontFamily?: string;
+  textFontStyle?: 'normal' | 'italic';
+  textToCreate?: { text: string; fontFamily: string; fontStyle: 'normal' | 'italic'; fontWeight: 'normal' | 'bold'; fontSize: number; x: number; y: number; fontUrl?: string } | null;
+  onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
+  onRequestTextPopup?: (x: number, y: number) => void;
 }
 
 export function CanvasEditor({
@@ -37,6 +45,11 @@ export function CanvasEditor({
   fillColor,
   strokeWidth,
   currentUnit = 'mm',
+  textFontFamily,
+  textFontStyle,
+  textToCreate,
+  onTextCreate,
+  onRequestTextPopup
 }: CanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,14 +109,17 @@ export function CanvasEditor({
     };
   }, [zoomToAnchor]);
 
-  // Handle shape creation from drawing (removed text tool related code)
+  // Handle shape creation from drawing
   useEffect(() => {
     if (currentShape && !isDrawing) {
-      // Only create shapes for valid tools (text tool removed)
-      if (currentShape.type !== 'select') { // Changed condition since 'type' is no longer a valid tool
+      // Only create shapes for valid tools
+      if (currentShape.type !== 'select') {
         if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
           onShapesChange([...shapes, currentShape]);
         } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
+          onShapesChange([...shapes, currentShape]);
+        } else if (currentShape.type === 'type') {
+          // For text shapes, we add them directly
           onShapesChange([...shapes, currentShape]);
         }
       }
@@ -299,8 +315,11 @@ export function CanvasEditor({
         const updated = { ...s } as Shape;
         if (updated.type === 'freeLine') {
           updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+        } else if (updated.type === 'type') {
+          // For text shapes, update the x and y position
+          updated.x = (updated.x ?? 0) + dx;
+          updated.y = (updated.y ?? 0) + dy;
         } else {
-          // For other shapes (text shape handling removed since text tool is removed)
           updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
           updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
           if (updated.startPoint) {
@@ -375,8 +394,13 @@ export function CanvasEditor({
           setSelectStart(point);
           setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
         }
+      } else if (tool === 'type') {
+        // For text tool, we open the text popup
+        if (onRequestTextPopup) {
+          onRequestTextPopup(point.x, point.y);
+        }
       } else {
-        // Start drawing (no special handling needed for text tool since it's removed)
+        // Start drawing
         setIsDrawing(true);
         const newShape = createShape(
           tool,
@@ -458,6 +482,11 @@ export function CanvasEditor({
         setSelectStart(point);
         setSelectionRect({ x: point.x, y: point.y, width: 0, height: 0 });
       }
+    } else if (tool === 'type') {
+      // For text tool, we open the text popup
+      if (onRequestTextPopup) {
+        onRequestTextPopup(point.x, point.y);
+      }
     } else {
       setIsDrawing(true);
       const newShape = createShape(
@@ -501,8 +530,11 @@ export function CanvasEditor({
           const updated = { ...s } as Shape;
           if (updated.type === 'freeLine') {
             updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+          } else if (updated.type === 'type') {
+            // For text shapes, update the x and y position
+            updated.x = (updated.x ?? 0) + dx;
+            updated.y = (updated.y ?? 0) + dy;
           } else {
-            // For other shapes (text shape handling removed since text tool is removed)
             updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
             updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
             if (updated.startPoint) {
@@ -703,8 +735,11 @@ export function CanvasEditor({
           const updated = { ...s } as Shape;
           if (updated.type === 'freeLine') {
             updated.points = updated.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+          } else if (updated.type === 'type') {
+            // For text shapes, update the x and y position
+            updated.x = (updated.x ?? 0) + dx;
+            updated.y = (updated.y ?? 0) + dy;
           } else {
-            // For other shapes (text shape handling removed since text tool is removed)
             updated.x = (updated.x ?? (updated.points[0]?.x ?? 0)) + dx;
             updated.y = (updated.y ?? (updated.points[0]?.y ?? 0)) + dy;
             if (updated.startPoint) {
@@ -1003,6 +1038,84 @@ export function CanvasEditor({
       // Just select the shape
       onSelectionChange([foundId]);
       onSelectionCommit([foundId]);
+    }
+  };
+
+  // Load external font when textToCreate changes
+  useEffect(() => {
+    if (textToCreate && textToCreate.fontUrl) {
+      loadExternalFont(textToCreate.fontFamily, textToCreate.fontUrl).then(() => {
+        // After font is loaded, create the text shape
+        const newTextShape: Shape = {
+          id: Date.now().toString(),
+          type: 'type',
+          points: [],
+          strokeColor: strokeColor,
+          fillColor: 'transparent',
+          strokeWidth: 1,
+          x: textToCreate.x,
+          y: textToCreate.y,
+          text: textToCreate.text,
+          fontSize: textToCreate.fontSize,
+          fontFamily: textToCreate.fontFamily,
+          fontStyle: textToCreate.fontStyle,
+          fontWeight: textToCreate.fontWeight,
+        };
+        
+        onShapesChange([...shapes, newTextShape]);
+        onSelectionChange([newTextShape.id]);
+        onSelectionCommit([newTextShape.id]);
+        onToolChange('select');
+      });
+    } else if (textToCreate) {
+      // Create text shape without external font
+      const newTextShape: Shape = {
+        id: Date.now().toString(),
+        type: 'type',
+        points: [],
+        strokeColor: strokeColor,
+        fillColor: 'transparent',
+        strokeWidth: 1,
+        x: textToCreate.x,
+        y: textToCreate.y,
+        text: textToCreate.text,
+        fontSize: textToCreate.fontSize,
+        fontFamily: textToCreate.fontFamily,
+        fontStyle: textToCreate.fontStyle,
+        fontWeight: textToCreate.fontWeight,
+      };
+      
+      onShapesChange([...shapes, newTextShape]);
+      onSelectionChange([newTextShape.id]);
+      onSelectionCommit([newTextShape.id]);
+      onToolChange('select');
+    }
+  }, [textToCreate, shapes, onShapesChange, onSelectionChange, onSelectionCommit, onToolChange, strokeColor]);
+
+  // Function to load external fonts
+  const loadExternalFont = async (fontFamily: string, fontUrl: string): Promise<void> => {
+    // Check if font is already loaded
+    if (loadedFonts.has(fontFamily)) {
+      return;
+    }
+
+    try {
+      // Create a new FontFace
+      const fontFace = new FontFace(fontFamily, `url(${fontUrl})`);
+      
+      // Load the font
+      await fontFace.load();
+      
+      // Add the font to the document
+      document.fonts.add(fontFace);
+      
+      // Mark as loaded
+      loadedFonts.add(fontFamily);
+      
+      // Trigger a redraw to apply the new font
+      redraw();
+    } catch (error) {
+      console.error(`Failed to load font ${fontFamily} from ${fontUrl}:`, error);
     }
   };
 

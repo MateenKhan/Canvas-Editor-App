@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tool, Shape } from '../types';
 import { Button } from './ui/button';
-import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight } from 'lucide-react';
+import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type } from 'lucide-react';
 import { SelectionTools } from './SelectionTools';
 import { DrawingTools, DrawingToolsRef } from './DrawingTools';
 
@@ -27,6 +27,11 @@ interface ControlsPanelProps {
   shapes: Shape[];
   onShapesChange: (shapes: Shape[]) => void;
   onUnitChange: (unit: 'mm' | 'in' | 'ft') => void;
+  textFontFamily?: string;
+  textFontStyle?: 'normal' | 'italic';
+  onTextFontFamilyChange?: (family: string) => void;
+  onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
+  onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
 }
 
 function getToolIcon(tool: Tool) {
@@ -53,6 +58,8 @@ function getToolIcon(tool: Tool) {
       return <Hexagon className="h-4 w-4" stroke="#7c3aed" color="#7c3aed" />;
     case 'arrow':
       return <ArrowRight className="h-4 w-4" stroke="#475569" color="#475569" />;
+    case 'type':
+      return <Type className="h-4 w-4" stroke="#4b5563" color="#4b5563" />;
     default:
       return null;
   }
@@ -78,6 +85,11 @@ export function ControlsPanel({
   shapes,
   onShapesChange,
   onUnitChange,
+  textFontFamily,
+  textFontStyle,
+  onTextFontFamilyChange,
+  onTextFontStyleChange,
+  onTextCreate
 }: ControlsPanelProps) {
 
   return (
@@ -141,6 +153,11 @@ export function ControlsPanel({
                 <DrawingTools
                   currentTool={currentTool}
                   onToolChange={onToolChange}
+                  textFontFamily={textFontFamily}
+                  textFontStyle={textFontStyle}
+                  onTextFontFamilyChange={onTextFontFamilyChange}
+                  onTextFontStyleChange={onTextFontStyleChange}
+                  onTextCreate={onTextCreate}
                 />
               )}
             </div>
