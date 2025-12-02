@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Tool, Shape } from '../types';
 import { Button } from './ui/button';
-import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type } from 'lucide-react';
+import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type, List } from 'lucide-react';
 import { SelectionTools } from './SelectionTools';
 import { DrawingTools, DrawingToolsRef } from './DrawingTools';
 
@@ -33,6 +33,7 @@ interface ControlsPanelProps {
   onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
   onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
   currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
+  onToggleSelectedList: () => void;
 }
 
 function getToolIcon(tool: Tool) {
@@ -91,7 +92,8 @@ export function ControlsPanel({
   onTextFontFamilyChange,
   onTextFontStyleChange,
   onTextCreate,
-  currentUnit // Add currentUnit prop
+  currentUnit, // Add currentUnit prop
+  onToggleSelectedList
 }: ControlsPanelProps) {
   const [showPalette, setShowPalette] = useState(false);
   const paletteRef = useRef<HTMLDivElement>(null);
@@ -129,6 +131,14 @@ export function ControlsPanel({
               </button>
               <button
                 type="button"
+                className="rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 border-gray-300"
+                onClick={onToggleSelectedList}
+                title="Toggle selected shapes list"
+              >
+                <List className="h-4 w-4 ml-1 rounded-full" />
+              </button>
+              <button
+                type="button"
                 aria-pressed={activeMenu === 'basic'}
                 className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 ${activeMenu === 'basic' ? 'border-blue-500' : 'border-gray-300'}`}
                 onClick={() => { 
@@ -138,16 +148,7 @@ export function ControlsPanel({
               >
                 <Square className="h-4 w-4 ml-1 rounded-full" stroke="#059669" color="#059669" />
               </button>
-              <Button
-                className="ml-auto"
-                size="sm"
-                variant="default"
-                onClick={() => onSimulate && onSimulate()}
-                title="Simulate"
-              >
-                Simulate
-              </Button>
-            </div>
+              </div>
             <div className="flex flex-wrap items-center justify-end gap-2 w-full">
               {activeMenu === 'tools' ? (
                 <SelectionTools
