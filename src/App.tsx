@@ -42,6 +42,26 @@ export default function App() {
   const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
   const [controlsVisible, setControlsVisible] = useState(true);
+
+  React.useEffect(() => {
+    if (shapes.length === 0) {
+      const inch = 96;
+      const pxPerMm = inch / 25.4;
+      const sampleRect: Shape = {
+        id: `sample-${Date.now()}`,
+        type: 'rectangle',
+        points: [],
+        strokeColor: '#111827',
+        fillColor: 'transparent',
+        strokeWidth: 2,
+        x: pxPerMm * 10,
+        y: pxPerMm * 10,
+        width: inch * 3,
+        height: inch * 2,
+      };
+      setShapes([sampleRect]);
+    }
+  }, []);
   
 
 

@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Button } from './ui/button';
-import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square } from 'lucide-react';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, RefreshCcw } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -32,36 +34,39 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
   const [viewerOffsetX, setViewerOffsetX] = useState(0);
   const [viewerOffsetY, setViewerOffsetY] = useState(0);
   const [playDirection, setPlayDirection] = useState<1 | -1>(1);
+  const [editedGcode, setEditedGcode] = useState(gcode);
+  const [parseVersion, setParseVersion] = useState(0);
+  const [feed, setFeed] = useState<number>(1000);
+  const [findText, setFindText] = useState('');
+  const [replaceText, setReplaceText] = useState('');
   const pinchDistRef = useRef<number | null>(null);
   const pinchMidRef = useRef<{ x: number; y: number } | null>(null);
   const lastDragRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Parse G-code into moves
   useEffect(() => {
-    const lines = gcode.split('\n');
+    const lines = editedGcode.split('\n');
     const parsedMoves: GCodeMove[] = [];
     let currentX = 0;
     let currentY = 0;
-
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith(';')) continue;
-
       const xMatch = trimmed.match(/X([-\d.]+)/);
       const yMatch = trimmed.match(/Y([-\d.]+)/);
-      
       if (xMatch) currentX = parseFloat(xMatch[1]);
       if (yMatch) currentY = parseFloat(yMatch[1]);
-
       const isRapid = trimmed.startsWith('G0') || trimmed.startsWith('G00');
-      
       if (xMatch || yMatch) {
         parsedMoves.push({ x: currentX, y: currentY, isRapid });
       }
     }
-
     setMoves(parsedMoves);
     setCurrentStep(0);
+  }, [parseVersion]);
+
+  useEffect(() => {
+    setEditedGcode(gcode);
+    setParseVersion(v => v + 1);
   }, [gcode]);
 
   // Draw simulation
@@ -208,7 +213,7 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
   }, [isPlaying, currentStep, moves.length, speed, playDirection]);
 
   const handleDownload = () => {
-    const blob = new Blob([gcode], { type: 'text/plain' });
+    const blob = new Blob([editedGcode], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -316,6 +321,9 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" onClick={handleReset} title="Reset">
                         <RotateCcw className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleRefresh} title="Refresh">
+                        <RefreshCcw className="h-4 w-4" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => { setPlayDirection(-1); setIsPlaying(true); }} title="Reverse">
                         <Rewind className="h-4 w-4" />
@@ -494,20 +502,58 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
             </AccordionContent>
           </AccordionItem>
 
-          <AccordionItem value="gcode">
-            <AccordionTrigger className="text-lg font-semibold">
-              G-code
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[500px]">
-                <pre className="text-green-400 font-mono text-sm leading-relaxed">
-                  {gcode}
-                </pre>
+            <AccordionItem value="gcode">
+              <AccordionTrigger className="text-lg font-semibold">
+                G-code
+              </AccordionTrigger>
+              <AccordionContent>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input type="number" value={feed} onChange={e => setFeed(Number(e.target.value || 0))} className="w-28" placeholder="F value" />
+                  <Button variant="outline" size="sm" onClick={applyFeedrate}>Apply Feedrate</Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input value={findText} onChange={e => setFindText(e.target.value)} className="flex-1" placeholder="Find" />
+                  <Input value={replaceText} onChange={e => setReplaceText(e.target.value)} className="flex-1" placeholder="Replace" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (!findText) return;
+                      const next = editedGcode.split(findText).join(replaceText);
+                      setEditedGcode(next);
+                    }}
+                  >
+                    Replace All
+                  </Button>
+                  <span className="text-xs text-gray-600">Matches: {findText ? (editedGcode.split(findText).length - 1) : 0}</span>
+                </div>
+                <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[500px]">
+                  <Textarea value={editedGcode} onChange={e => setEditedGcode(e.target.value)} className="text-green-400 font-mono text-sm leading-relaxed min-h-[240px]" />
+                </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+              </AccordionContent>
+            </AccordionItem>
         </Accordion>
       </div>
     </div>
   );
 }
+  const handleRefresh = () => {
+    setIsPlaying(false);
+    setParseVersion(v => v + 1);
+  };
+
+  const applyFeedrate = () => {
+    const lines = editedGcode.split('\n');
+    const next = lines.map(l => {
+      if (/G1\b/.test(l)) {
+        if (/F[-\d.]+/.test(l)) {
+          return l.replace(/F[-\d.]+/g, `F${feed}`);
+        }
+        return `${l} F${feed}`;
+      }
+      return l.replace(/F[-\d.]+/g, `F${feed}`);
+    }).join('\n');
+    setEditedGcode(next);
+  };

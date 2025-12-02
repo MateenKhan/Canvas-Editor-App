@@ -11,7 +11,7 @@ export function Header({ onToggleRight, isRightOpen }: HeaderProps) {
   return (
     <header className="border-b bg-white px-4 py-3 shadow-sm relative z-30">
       <div className="flex items-center justify-between">
-        <h1 className="text-gray-900">Airtajal Canvas</h1>
+        <h1 className="text-gray-900"> Design & Make by Airtajal </h1>
         <Button
           variant="outline"
           size="icon"
