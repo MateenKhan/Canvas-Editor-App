@@ -32,6 +32,11 @@ export interface Shape {
   radius?: number;
   startPoint?: Point;
   endPoint?: Point;
+  text?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontStyle?: 'normal' | 'italic';
+  fontWeight?: 'normal' | 'bold';
 }
 
 export interface ViewTransform {

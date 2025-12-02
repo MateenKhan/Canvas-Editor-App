@@ -1,135 +1,141 @@
 import React, { useState } from 'react';
 import { CanvasEditor } from './components/CanvasEditor';
-import { Toolbar } from './components/Toolbar';
+// import { Toolbar } from './components/Toolbar';
 import { ShapeEditor } from './components/ShapeEditor';
 import { FileControls } from './components/FileControls';
 import { GCodeViewer } from './components/GCodeViewer';
 import { Button } from './components/ui/button';
 import { X } from 'lucide-react';
 import { Header } from './components/Header';
+import { ControlsPanel } from './components/ControlsPanel';
+import { SelectionTools } from './components/SelectionTools';
+import { DrawingTools } from './components/DrawingTools';
 // import { ExportTools } from './components/ExportTools';
 import { Shape, Tool } from './types';
+import { generateGCode } from './utils/gcode';
+import { useCanvasTools } from './hooks/useCanvasTools';
+import { useUndoRedo } from './hooks/useUndoRedo';
+import { useShapes } from './hooks/useShapes';
 
 export default function App() {
-  const [currentTool, setCurrentTool] = useState<Tool>('select');
-  const [shapes, setShapes] = useState<Shape[]>([]);
-  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
+  const { currentTool, handleToolChange, handleToggleSelectTool } = useCanvasTools();
+  const { undoStack, redoStack, pushState, undo, redo, canUndo, canRedo } = useUndoRedo();
+  const {
+    shapes,
+    setShapes,
+    selectedShapeIds,
+    setSelectedShapeIds,
+    selectedShape,
+    handleShapesChange,
+    handleSelectionChange,
+    handleSelectionCommit,
+    handleShapeUpdate,
+    handleUpdateSelectedDimensions,
+    handleClearSelection,
+    handleDeleteSelected,
+  } = useShapes(pushState);
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [leftOpen, setLeftOpen] = useState(false);
+  const [textFontFamily, setTextFontFamily] = useState<string>('Arial');
+  const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
+  // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
-  const [undoStack, setUndoStack] = useState<Shape[][]>([]);
-  const [redoStack, setRedoStack] = useState<Shape[][]>([]);
   const [showGCode, setShowGCode] = useState(false);
   const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
+  const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [theme, setTheme] = useState('galaxy');
+  const [currentUnit, setCurrentUnit] = useState<'mm' | 'in' | 'ft'>('mm'); // Add unit state
 
-  const selectedShape = shapes.find(s => selectedShapeIds.includes(s.id));
-
-  const handleShapesChange = (newShapes: Shape[]) => {
-    setUndoStack(prev => [...prev, shapes]);
-    setShapes(newShapes);
-    setRedoStack([]);
-  };
-
-  const handleSelectionChange = (ids: string[]) => {
-    setSelectedShapeIds(ids);
-  };
-
-  const handleShapeUpdate = (id: string, updates: Partial<Shape>) => {
-    setShapes(shapes.map(s => s.id === id ? { ...s, ...updates } : s));
-  };
-
-  const handleUpdateSelectedDimensions = (updates: Partial<Shape>) => {
-    if (selectedShapeIds.length === 0) return;
-    const next = shapes.map(s => selectedShapeIds.includes(s.id) ? { ...s, ...updates } : s);
-    setUndoStack(prev => [...prev, shapes]);
-    setShapes(next);
-    setRedoStack([]);
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedShapeIds.length > 0) {
-      const next = shapes.filter(s => !selectedShapeIds.includes(s.id));
-      setUndoStack(prev => [...prev, shapes]);
-      setShapes(next);
-      setSelectedShapeIds([]);
-      setRedoStack([]);
+  React.useEffect(() => {
+    if (shapes.length === 0) {
+      // Use mm as default unit instead of inches
+      const pxPerMm = 96 / 25.4; // pixels per millimeter
+      const sampleRect: Shape = {
+        id: `sample-${Date.now()}`,
+        type: 'rectangle',
+        points: [],
+        strokeColor: '#111827',
+        fillColor: 'transparent',
+        strokeWidth: 2,
+        x: pxPerMm * 10,  // 10mm from left
+        y: pxPerMm * 10,  // 10mm from top
+        width: pxPerMm * 100,  // 100mm wide
+        height: pxPerMm * 50,  // 50mm tall
+      };
+      setShapes([sampleRect]);
     }
-  };
+  }, []);
+
+  
 
   const handleUndo = () => {
-    setUndoStack(prev => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setRedoStack(r => [...r, shapes]);
-      setShapes(last);
-      return prev.slice(0, -1);
-    });
+    undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
   };
 
   const handleRedo = () => {
-    setRedoStack(prev => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setUndoStack(u => [...u, shapes]);
-      setShapes(last);
-      return prev.slice(0, -1);
-    });
+    redo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
   };
+
+  
 
   const handleViewGCode = (gcode: string, margin: number) => {
     setGcodeData({ gcode, margin });
     setShowGCode(true);
+    setRightOpen(false);
+  };
+
+  const getCanvasGcode = () => {
+    const shapesToExport = selectedShapeIds.length > 0
+      ? shapes.filter(s => selectedShapeIds.includes(s.id))
+      : shapes;
+    const m = gcodeData ? gcodeData.margin : 5;
+    return generateGCode(shapesToExport, m);
+  };
+
+  const handleSimulateFromCanvas = () => {
+    const shapesToExport = selectedShapeIds.length > 0
+      ? shapes.filter(s => selectedShapeIds.includes(s.id))
+      : shapes;
+    const margin = gcodeData ? gcodeData.margin : 5;
+    const gcode = generateGCode(shapesToExport, margin);
+    setGcodeData({ gcode, margin });
+    setShowGCode(true);
+    setRightOpen(false);
+  };
+
+  // Handle unit change from controls
+  const handleUnitChange = (newUnit: 'mm' | 'in' | 'ft') => {
+    setCurrentUnit(newUnit);
   };
 
   return (
-    <div className="flex h-screen flex-col bg-gray-50">
-      <Header onToggleLeft={() => setLeftOpen((prev) => !prev)} onToggleRight={() => setRightOpen((prev) => !prev)} />
+    <div id="app-root" className={`theme-${theme} flex h-screen flex-col bg-background text-foreground`}>
+      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} />
 
       <div className="flex flex-1 overflow-hidden">
-        <aside
-          className={`${leftOpen ? 'block fixed inset-y-0 left-0 z-50 w-20' : 'hidden'} sm:block sm:static sm:z-auto sm:w-12 border-r bg-white shadow-sm h-full overflow-y-auto`}
-        >
-          <Toolbar 
-            currentTool={currentTool} 
-            onToolChange={setCurrentTool}
-            strokeColor={strokeColor}
-            fillColor={fillColor}
-            strokeWidth={strokeWidth}
-            onStrokeColorChange={setStrokeColor}
-            onFillColorChange={setFillColor}
-            onStrokeWidthChange={setStrokeWidth}
-            onDeleteSelected={handleDeleteSelected}
-            selectedCount={selectedShapeIds.length}
-            onUndo={handleUndo}
-            onRedo={handleRedo}
-            canUndo={undoStack.length > 0}
-            canRedo={redoStack.length > 0}
-            selectedShape={selectedShape}
-            onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
-          />
-        </aside>
+        {/* Left sidebar removed */}
 
         <main className="flex-1 overflow-hidden flex flex-col">
-          <div className="flex items-center bg-gray-100 border-b">
+          <div className="flex items-center bg-background border-b border-border">
             <button
               onClick={() => setShowGCode(false)}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 !showGCode
-                  ? 'border-blue-500 text-blue-600 bg-white'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Canvas
-            </button>
+                    ? 'border-blue-500 text-blue-600 bg-background'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Canvas
+              </button>
             {gcodeData && (
               <>
                 <button
                   onClick={() => setShowGCode(true)}
                   className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                     showGCode
-                      ? 'border-blue-500 text-blue-600 bg-white'
+                      ? 'border-blue-500 text-blue-600 bg-background'
                       : 'border-transparent text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -147,34 +153,76 @@ export default function App() {
                 </button>
               </>
             )}
+            {!showGCode && (
+              <button
+                type="button"
+                aria-pressed={controlsVisible}
+                aria-expanded={controlsVisible}
+                aria-controls="controls-panel"
+                onClick={() => setControlsVisible(prev => !prev)}
+                className="ml-auto rounded-full border px-3 py-1 text-xs font-medium cursor-pointer bg-background border-border text-foreground"
+              >
+                {controlsVisible ? 'Hide Controls' : 'Show Controls'}
+              </button>
+            )}
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          {!showGCode && (
+          <ControlsPanel
+              controlsVisible={controlsVisible}
+              activeMenu={activeMenu}
+              setActiveMenu={setActiveMenu}
+              currentTool={currentTool}
+              onToolChange={handleToolChange}
+              onToggleSelect={handleToggleSelectTool}
+              onDeleteSelected={handleDeleteSelected}
+              selectedCount={selectedShapeIds.length}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              selectedShape={selectedShape}
+              onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
+              onClearSelection={handleClearSelection}
+              onSimulate={handleSimulateFromCanvas}
+              textFontFamily={textFontFamily}
+              textFontStyle={textFontStyle}
+              onTextFontFamilyChange={setTextFontFamily}
+              onTextFontStyleChange={setTextFontStyle}
+              shapes={shapes}
+              onShapesChange={handleShapesChange}
+              onUnitChange={handleUnitChange} // Pass unit change handler
+            />
+          )}
+
+          <div className={`flex-1 ${showGCode ? 'overflow-auto' : 'overflow-hidden'}`}>
             {!showGCode ? (
-              <CanvasEditor
-                tool={currentTool}
-                shapes={shapes}
-                onShapesChange={handleShapesChange}
-                selectedShapeIds={selectedShapeIds}
-                onSelectionChange={handleSelectionChange}
-                strokeColor={strokeColor}
-                fillColor={fillColor}
-                strokeWidth={strokeWidth}
-              />
+          <CanvasEditor
+            tool={currentTool}
+            shapes={shapes}
+            onShapesChange={handleShapesChange}
+            selectedShapeIds={selectedShapeIds}
+            onSelectionChange={handleSelectionChange}
+            onSelectionCommit={handleSelectionCommit}
+            onToolChange={handleToolChange} // Pass onToolChange prop
+            strokeColor={strokeColor}
+            fillColor={fillColor}
+            strokeWidth={strokeWidth}
+            textFontFamily={textFontFamily}
+            textFontStyle={textFontStyle}
+            currentUnit={currentUnit} // Pass current unit to CanvasEditor
+          />
             ) : gcodeData ? (
-              <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} />
+              <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />
             ) : null}
           </div>
         </main>
 
         <aside
-          className={`${rightOpen ? 'block fixed inset-y-0 right-0 z-50 w-80' : 'hidden'} sm:block sm:static sm:z-auto sm:w-80 border-l bg-white p-4 shadow-sm overflow-y-auto`}
+          id="right-sidebar"
+          className={`${rightOpen ? 'block fixed inset-y-0 right-0 z-50 w-80' : 'hidden'} sm:block sm:static sm:z-auto sm:w-80 border-l border-border bg-background p-4 shadow-sm overflow-y-auto`}
         >
-          <div className="sm:hidden flex justify-end">
-            <Button variant="ghost" size="icon" onClick={() => setRightOpen(false)}>
-              <X />
-            </Button>
-          </div>
+          
           <FileControls 
             shapes={shapes}
             selectedShapeId={selectedShape ? selectedShape.id : null}
@@ -192,10 +240,10 @@ export default function App() {
         </aside>
       </div>
 
-      {(leftOpen || rightOpen) && (
+      {rightOpen && (
         <div
           className="fixed inset-0 bg-black/50 sm:hidden"
-          onClick={() => { setLeftOpen(false); setRightOpen(false); }}
+          onClick={() => { setRightOpen(false); }}
         />
       )}
     </div>

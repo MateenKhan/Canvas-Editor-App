@@ -1,12 +1,16 @@
 import React from 'react';
 import { Tool } from '../types';
 import { Button } from './ui/button';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from './ui/accordion';
 import { Pencil, Minus, Square, Circle, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type } from 'lucide-react';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
 
 interface DrawingToolsProps {
   currentTool: Tool;
   onToolChange: (tool: Tool) => void;
+  textFontFamily?: string;
+  textFontStyle?: 'normal' | 'italic';
+  onTextFontFamilyChange?: (family: string) => void;
+  onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
 }
 
 const toolItems: { name: Tool; icon: React.ReactNode; tooltip: string }[] = [
@@ -23,32 +27,53 @@ const toolItems: { name: Tool; icon: React.ReactNode; tooltip: string }[] = [
   { name: 'type', icon: <Type className="h-5 w-5" stroke="#4b5563" color="#4b5563" />, tooltip: 'Type' },
 ];
 
-export function DrawingTools({ currentTool, onToolChange }: DrawingToolsProps) {
+export function DrawingTools({ currentTool, onToolChange, textFontFamily = 'Arial', textFontStyle = 'normal', onTextFontFamilyChange, onTextFontStyleChange }: DrawingToolsProps) {
   return (
     <div className="w-full">
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="tools">
-          <AccordionTrigger className="px-2">
-            <span className="flex-1 text-center">Basic</span>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="flex flex-col items-center space-y-1.5">
-              {toolItems.map(tool => (
-                <Button
-                  key={tool.name}
-                  variant={currentTool === tool.name ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => onToolChange(tool.name)}
-                  title={tool.tooltip}
-                  className="h-12 w-12"
-                >
-                  {tool.icon}
-                </Button>
-              ))}
+      <div className="flex-wrap items-center gap-1.5 rounded-full bg-gray-50 border px-2 py-1 shadow-sm min-w-0">
+        {toolItems.map(tool => (
+          <Button
+            key={tool.name}
+            variant="ghost"
+            size="icon"
+            onClick={() => onToolChange(tool.name)}
+            title={tool.tooltip}
+            className={`${currentTool === tool.name ? 'bg-blue-500 text-white ring-2 ring-blue-500 scale-110' : ''} h-10 w-10 rounded-full inline-flex items-center justify-center transition-all duration-200 ease-in-out`}
+          >
+            {tool.icon}
+          </Button>
+        ))}
+        {currentTool === 'type' && (
+          <div className="ml-2 inline-flex flex-wrap items-center gap-2">
+            <div className="min-w-[140px]">
+              <Select value={textFontFamily} onValueChange={(v: string) => onTextFontFamilyChange && onTextFontFamilyChange(v)}>
+                <SelectTrigger size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Arial">Arial</SelectItem>
+                  <SelectItem value="Inter">Inter</SelectItem>
+                  <SelectItem value="Roboto">Roboto</SelectItem>
+                  <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                  <SelectItem value="Courier New">Courier New</SelectItem>
+                  <SelectItem value="Monospace">Monospace</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+            <div className="min-w-[120px]">
+              <Select value={textFontStyle} onValueChange={(v: string) => onTextFontStyleChange && onTextFontStyleChange(v as 'normal' | 'italic')}>
+                <SelectTrigger size="sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="italic">Italic</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
