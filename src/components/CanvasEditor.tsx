@@ -259,9 +259,8 @@ export function CanvasEditor({
         }
         if (foundId) {
           if (selectedShapeIds.includes(foundId)) {
-            const next = selectedShapeIds.filter(id => id !== foundId);
-            onSelectionChange(next);
-            onSelectionCommit(next);
+            setIsDragging(true);
+            setLastDragPoint(point);
           } else {
             const next = [...selectedShapeIds, foundId];
             onSelectionChange(next);
@@ -321,9 +320,8 @@ export function CanvasEditor({
       }
       if (foundId) {
         if (selectedShapeIds.includes(foundId)) {
-          const next = selectedShapeIds.filter(id => id !== foundId);
-          onSelectionChange(next);
-          onSelectionCommit(next);
+          setIsDragging(true);
+          setLastDragPoint(point);
         } else {
           const next = [...selectedShapeIds, foundId];
           onSelectionChange(next);
@@ -338,17 +336,7 @@ export function CanvasEditor({
       }
     } else {
       setIsDrawing(true);
-      const newShape: Shape = {
-        id: Date.now().toString(),
-        type: tool,
-        points: [point],
-        strokeColor,
-        fillColor,
-        strokeWidth,
-        x: point.x,
-        y: point.y,
-        startPoint: point,
-      };
+      const newShape = createShape(tool, point, strokeColor, fillColor, strokeWidth);
       setCurrentShape(newShape);
     }
   };

@@ -109,16 +109,18 @@ export default function App() {
                 </button>
               </>
             )}
-            <button
-              type="button"
-              aria-pressed={controlsVisible}
-              aria-expanded={controlsVisible}
-              aria-controls="controls-panel"
-              onClick={() => setControlsVisible(prev => !prev)}
-              className="ml-auto rounded-full border px-3 py-1 text-xs font-medium cursor-pointer bg-gray-100 border-gray-300 text-gray-700"
-            >
-              {controlsVisible ? 'Hide Controls' : 'Show Controls'}
-            </button>
+            {!showGCode && (
+              <button
+                type="button"
+                aria-pressed={controlsVisible}
+                aria-expanded={controlsVisible}
+                aria-controls="controls-panel"
+                onClick={() => setControlsVisible(prev => !prev)}
+                className="ml-auto rounded-full border px-3 py-1 text-xs font-medium cursor-pointer bg-gray-100 border-gray-300 text-gray-700"
+              >
+                {controlsVisible ? 'Hide Controls' : 'Show Controls'}
+              </button>
+            )}
           </div>
 
           {!showGCode && (
