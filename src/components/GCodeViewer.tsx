@@ -2,14 +2,14 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, FileCode, Shapes } from 'lucide-react';
+import { Download, Play, Pause, RotateCcw, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, FileCode, Shapes } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from './ui/accordion';
-import { Slider } from './ui/slider';
+ 
 
 interface GCodeViewerProps {
   gcode: string;
@@ -21,6 +21,7 @@ interface GCodeMove {
   x: number;
   y: number;
   isRapid: boolean;
+  z?: number;
 }
 
 export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProps) {
@@ -32,33 +33,54 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
   const [moves, setMoves] = useState<GCodeMove[]>([]);
   const animationRef = useRef<number>();
   const [viewerScale, setViewerScale] = useState(1);
-  const [viewerOffsetX, setViewerOffsetX] = useState(0);
-  const [viewerOffsetY, setViewerOffsetY] = useState(0);
   const [playDirection, setPlayDirection] = useState<1 | -1>(1);
   const [editedGcode, setEditedGcode] = useState(gcode);
   const [parseVersion, setParseVersion] = useState(0);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
   const [accordionOpen, setAccordionOpen] = useState<string[]>(['simulation', 'gcode']);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const maxStepCount = Math.max(moves.length - 1, 1);
+  const segments = moves.length > 1
+    ? moves.slice(1).map((m, i) => {
+        const startPct = (i / maxStepCount) * 100;
+        const endPct = ((i + 1) / maxStepCount) * 100;
+        const widthPct = endPct - startPct;
+        return { startPct, widthPct, isRapid: m.isRapid };
+      })
+    : [];
+
+  const setStepFromClientX = (clientX: number) => {
+    const el = timelineRef.current;
+    if (!el || moves.length === 0) return;
+    const rect = el.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const maxStep = Math.max(moves.length - 1, 1);
+    const next = Math.round(ratio * maxStep);
+    setCurrentStep(Math.min(maxStep, Math.max(0, next)));
+  };
   const pinchDistRef = useRef<number | null>(null);
   const pinchMidRef = useRef<{ x: number; y: number } | null>(null);
-  const lastDragRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const lines = editedGcode.split('\n');
     const parsedMoves: GCodeMove[] = [];
     let currentX = 0;
     let currentY = 0;
+    let currentZ = 0;
     for (const line of lines) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith(';')) continue;
       const xMatch = trimmed.match(/X([-\d.]+)/);
       const yMatch = trimmed.match(/Y([-\d.]+)/);
+      const zMatch = trimmed.match(/Z([-\d.]+)/);
       if (xMatch) currentX = parseFloat(xMatch[1]);
       if (yMatch) currentY = parseFloat(yMatch[1]);
+      if (zMatch) currentZ = parseFloat(zMatch[1]);
       const isRapid = trimmed.startsWith('G0') || trimmed.startsWith('G00');
       if (xMatch || yMatch) {
-        parsedMoves.push({ x: currentX, y: currentY, isRapid });
+        parsedMoves.push({ x: currentX, y: currentY, z: currentZ, isRapid });
       }
     }
     setMoves(parsedMoves);
@@ -98,15 +120,21 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
     const minY = Math.min(...ys);
     const maxY = Math.max(...ys);
 
-    const width = maxX - minX;
-    const height = maxY - minY;
+    const width = Math.max(1, maxX - minX);
+    const height = Math.max(1, maxY - minY);
     const padding = 50;
     const scaleX = (canvas.width - padding * 2) / width;
     const scaleY = (canvas.height - padding * 2) / height;
     const scale = Math.min(scaleX, scaleY);
 
-    const centerX = canvas.width / 2 - ((minX + maxX) / 2) * scale + viewerOffsetX;
-    const centerY = canvas.height / 2 + ((minY + maxY) / 2) * scale + viewerOffsetY;
+    const centerX = canvas.width / 2 - ((minX + maxX) / 2) * scale;
+    const centerY = canvas.height / 2 + ((minY + maxY) / 2) * scale;
+
+    const transform = (wx: number, wy: number) => {
+      const vx = wx * scale;
+      const vy = -wy * scale;
+      return [centerX + vx, centerY + vy] as const;
+    };
 
     // Draw grid
     ctx.strokeStyle = '#2d2d2d';
@@ -133,10 +161,8 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
       const move = moves[i];
       const nextMove = moves[i + 1];
       
-      const x1 = centerX + move.x * scale;
-      const y1 = centerY - move.y * scale;
-      const x2 = centerX + nextMove.x * scale;
-      const y2 = centerY - nextMove.y * scale;
+      const [x1, y1] = transform(move.x, move.y);
+      const [x2, y2] = transform(nextMove.x, nextMove.y);
 
       ctx.strokeStyle = nextMove.isRapid ? '#858585' : '#00ff00';
       ctx.setLineDash(nextMove.isRapid ? [5, 5] : []);
@@ -150,8 +176,7 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
     // Draw current position
     if (currentStep < moves.length) {
       const current = moves[currentStep];
-      const x = centerX + current.x * scale;
-      const y = centerY - current.y * scale;
+      const [x, y] = transform(current.x, current.y);
       
       ctx.fillStyle = '#ff0000';
       ctx.beginPath();
@@ -162,8 +187,7 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
     // Draw start point
     if (moves.length > 0) {
       const start = moves[0];
-      const startX = centerX + start.x * scale;
-      const startY = centerY - start.y * scale;
+      const [startX, startY] = transform(start.x, start.y);
       
       ctx.fillStyle = '#00ff00';
       ctx.beginPath();
@@ -177,7 +201,40 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
     ctx.textAlign = 'left';
     ctx.fillText(`Bounds: ${width.toFixed(2)} x ${height.toFixed(2)} mm`, 10, 20);
 
-  }, [moves, currentStep, viewerScale, viewerOffsetX, viewerOffsetY]);
+    // Axis triad (X right, Y up, Z diagonal)
+    const triadOriginX = 20;
+    const triadOriginY = canvas.height - 30;
+    ctx.lineWidth = 2;
+    // X - red (right)
+    ctx.strokeStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.moveTo(triadOriginX, triadOriginY);
+    ctx.lineTo(triadOriginX + 30, triadOriginY);
+    ctx.stroke();
+    ctx.fillText('X', triadOriginX + 35, triadOriginY + 4);
+    // Y - green (up)
+    ctx.strokeStyle = '#22c55e';
+    ctx.beginPath();
+    ctx.moveTo(triadOriginX, triadOriginY);
+    ctx.lineTo(triadOriginX, triadOriginY - 30);
+    ctx.stroke();
+    ctx.fillText('Y', triadOriginX - 4, triadOriginY - 35);
+    // Z - blue (diagonal)
+    ctx.strokeStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.moveTo(triadOriginX, triadOriginY);
+    ctx.lineTo(triadOriginX + 20, triadOriginY - 20);
+    ctx.stroke();
+    ctx.fillText('Z', triadOriginX + 24, triadOriginY - 24);
+
+    // Current coordinates
+    if (currentStep < moves.length) {
+      const c = moves[currentStep];
+      ctx.fillStyle = '#d4d4d4';
+      ctx.fillText(`X:${c.x.toFixed(2)} Y:${c.y.toFixed(2)}`, 10, canvas.height - 10);
+    }
+
+  }, [moves, currentStep, viewerScale]);
 
   // Animation loop
   useEffect(() => {
@@ -303,28 +360,76 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
               <div className="space-y-4">
                 {/* Media Player Controls */}
                 <div className="bg-white border rounded-lg p-4 space-y-3">
-                  {/* Timeline Slider */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <span className="font-medium">Step: {currentStep} / {moves.length}</span>
-                      <span className="font-medium">{Math.round((currentStep / moves.length) * 100)}%</span>
+                      <span className="font-medium">{moves.length > 0 ? Math.round((currentStep / Math.max(moves.length - 1, 1)) * 100) : 0}%</span>
                     </div>
                     <div className="py-3 px-1">
-                      <div className="relative">
-                        <Slider
-                          value={[currentStep]}
-                          onValueChange={(value) => {
-                            setCurrentStep(value[0]);
-                            setIsPlaying(false);
-                          }}
-                          min={0}
-                          max={Math.max(moves.length - 1, 1)}
-                          step={1}
-                          className="w-full cursor-pointer [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:bg-gray-700 [&_[data-slot=slider-range]]:bg-blue-500 [&_[data-slot=slider-thumb]]:size-5 [&_[data-slot=slider-thumb]]:border-2 [&_[data-slot=slider-thumb]]:border-blue-500 [&_[data-slot=slider-thumb]]:bg-white [&_[data-slot=slider-thumb]]:shadow-lg hover:[&_[data-slot=slider-thumb]]:scale-110 [&_[data-slot=slider-thumb]]:transition-transform"
+                      <div
+                        ref={timelineRef}
+                        className="relative h-3 rounded cursor-pointer select-none"
+                        style={{ backgroundColor: '#3f3f46' }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setIsPlaying(false);
+                          setIsScrubbing(true);
+                          setStepFromClientX(e.clientX);
+                          const onMove = (ev: MouseEvent) => setStepFromClientX(ev.clientX);
+                          const onUp = () => {
+                            setIsScrubbing(false);
+                            window.removeEventListener('mousemove', onMove);
+                            window.removeEventListener('mouseup', onUp);
+                          };
+                          window.addEventListener('mousemove', onMove);
+                          window.addEventListener('mouseup', onUp);
+                        }}
+                        onTouchStart={(e) => {
+                          const t = e.touches[0];
+                          setIsPlaying(false);
+                          setIsScrubbing(true);
+                          setStepFromClientX(t.clientX);
+                          const onMove = (ev: TouchEvent) => {
+                            const tt = ev.touches[0];
+                            if (tt) setStepFromClientX(tt.clientX);
+                          };
+                          const onEnd = () => {
+                            setIsScrubbing(false);
+                            window.removeEventListener('touchmove', onMove);
+                            window.removeEventListener('touchend', onEnd);
+                            window.removeEventListener('touchcancel', onEnd);
+                          };
+                          window.addEventListener('touchmove', onMove, { passive: true });
+                          window.addEventListener('touchend', onEnd);
+                          window.addEventListener('touchcancel', onEnd);
+                        }}
+                      >
+                        <div className="absolute inset-0 rounded">
+                          {segments.map((seg, idx) => (
+                            <div
+                              key={idx}
+                              className="absolute top-0 h-full"
+                              style={{
+                                left: `${seg.startPct}%`,
+                                width: `${seg.widthPct}%`,
+                                backgroundImage: seg.isRapid
+                                  ? 'linear-gradient(0deg, #858585, #858585), repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px)'
+                                  : undefined,
+                                backgroundColor: seg.isRapid ? undefined : '#22c55e',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div
+                          className="absolute left-0 top-0 h-1 rounded bg-blue-500 z-10"
+                          style={{ width: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
+                        />
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-4 rounded-full border-2 border-blue-500 bg-white shadow z-20"
+                          style={{ left: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
-                    
                   </div>
 
                   {/* Playback Controls */}
@@ -394,7 +499,8 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
                 <div 
                   ref={containerRef} 
                   className="relative w-full bg-gray-900 rounded-lg overflow-auto"
-                  style={{ height: '400px' }}
+                  style={{ height: '400px', touchAction: 'none' }}
+                  
                   onWheel={(e) => {
                     if (e.ctrlKey) {
                       e.preventDefault();
@@ -415,9 +521,6 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
                       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - container.getBoundingClientRect().left;
                       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - container.getBoundingClientRect().top;
                       pinchMidRef.current = { x: midX, y: midY };
-                    } else if (e.touches.length === 1) {
-                      const rect = container.getBoundingClientRect();
-                      lastDragRef.current = { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
                     }
                   }}
                   onTouchMove={(e) => {
@@ -434,62 +537,15 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
                       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
                       pinchDistRef.current = dist;
                       pinchMidRef.current = { x: midX, y: midY };
-
-                      const xs = moves.map(m => m.x);
-                      const ys = moves.map(m => m.y);
-                      if (xs.length === 0 || ys.length === 0) return;
-                      const minX = Math.min(...xs);
-                      const maxX = Math.max(...xs);
-                      const minY = Math.min(...ys);
-                      const maxY = Math.max(...ys);
-                      const width = Math.max(1, maxX - minX);
-                      const height = Math.max(1, maxY - minY);
-                      const padding = 50;
-                      const canvasWidth = Math.max(1, Math.round(container.clientWidth * viewerScale));
-                      const canvasHeight = Math.max(1, Math.round(container.clientHeight * viewerScale));
-                      const scaleX = (canvasWidth - padding * 2) / width;
-                      const scaleY = (canvasHeight - padding * 2) / height;
-                      const scale = Math.min(scaleX, scaleY);
-
-                      const centerBaseX = canvasWidth / 2 - ((minX + maxX) / 2) * scale;
-                      const centerBaseY = canvasHeight / 2 + ((minY + maxY) / 2) * scale;
-                      const currentCenterX = centerBaseX + viewerOffsetX;
-                      const currentCenterY = centerBaseY + viewerOffsetY;
-
                       const newViewerScale = Math.max(0.2, Math.min(10, viewerScale * factor));
-                      const newCanvasWidth = Math.max(1, Math.round(container.clientWidth * newViewerScale));
-                      const newCanvasHeight = Math.max(1, Math.round(container.clientHeight * newViewerScale));
-                      const newScaleX = (newCanvasWidth - padding * 2) / width;
-                      const newScaleY = (newCanvasHeight - padding * 2) / height;
-                      const newScale = Math.min(newScaleX, newScaleY);
-
-                      const scaleChange = newScale / scale;
-                      const newCenterX = midX - (midX - currentCenterX) * scaleChange;
-                      const newCenterY = midY - (midY - currentCenterY) * scaleChange;
-
-                      const newCenterBaseX = newCanvasWidth / 2 - ((minX + maxX) / 2) * newScale;
-                      const newCenterBaseY = newCanvasHeight / 2 + ((minY + maxY) / 2) * newScale;
                       setViewerScale(newViewerScale);
-                      setViewerOffsetX(newCenterX - newCenterBaseX);
-                      setViewerOffsetY(newCenterY - newCenterBaseY);
-                    } else if (e.touches.length === 1 && lastDragRef.current) {
-                      e.preventDefault();
-                      const rect = container.getBoundingClientRect();
-                      const x = e.touches[0].clientX - rect.left;
-                      const y = e.touches[0].clientY - rect.top;
-                      const dx = x - lastDragRef.current.x;
-                      const dy = y - lastDragRef.current.y;
-                      lastDragRef.current = { x, y };
-                      setViewerOffsetX(prev => prev + dx);
-                      setViewerOffsetY(prev => prev + dy);
                     }
                   }}
                   onTouchEnd={() => {
                     pinchDistRef.current = null;
                     pinchMidRef.current = null;
-                    lastDragRef.current = null;
+                    
                   }}
-                  style={{ touchAction: 'none' }}
                 >
                   <canvas ref={canvasRef} />
                   <div className="absolute bottom-2 right-2 flex items-center gap-2">
@@ -511,6 +567,7 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
                     </Button>
                     <span className="rounded bg-gray-800 text-white px-2 py-1 text-xs">{Math.round(viewerScale * 100)}%</span>
                   </div>
+                  
                 </div>
 
                 <div className="bg-gray-800 text-white px-3 py-2 rounded text-xs space-y-1">

@@ -7,9 +7,11 @@ interface HeaderProps {
   isRightOpen?: boolean;
   theme?: string;
   onThemeChange?: (t: string) => void;
+  fontSize?: number;
+  onFontSizeChange?: (n: number) => void;
 }
 
-export function Header({ onToggleRight, isRightOpen, theme = 'galaxy', onThemeChange }: HeaderProps) {
+export function Header({ onToggleRight, isRightOpen, theme = 'galaxy', onThemeChange, fontSize = 16, onFontSizeChange }: HeaderProps) {
   return (
     <header className="border-b border-border bg-background text-foreground px-4 py-3 shadow-sm relative z-30">
       <div className="flex items-center justify-between">
@@ -30,6 +32,18 @@ export function Header({ onToggleRight, isRightOpen, theme = 'galaxy', onThemeCh
             <option value="ocean">Ocean</option>
             <option value="sunset">Sunset</option>
             <option value="midnight">Midnight</option>
+          </select>
+          <label htmlFor="font-size-select" className="sr-only">Font Size</label>
+          <select
+            id="font-size-select"
+            value={fontSize}
+            onChange={(e) => onFontSizeChange?.(Number(e.target.value))}
+            className="border border-border rounded px-2 py-1 text-sm bg-background text-foreground"
+          >
+            <option value={14}>14px</option>
+            <option value={16}>16px</option>
+            <option value={18}>18px</option>
+            <option value={20}>20px</option>
           </select>
           <Button
             variant="outline"

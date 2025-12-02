@@ -92,6 +92,71 @@ export function ShapeEditor({ shape, onUpdate, onDelete }: ShapeEditorProps) {
           </div>
         </div>
 
+        {shape.type === 'type' && (
+          <div className="space-y-2">
+            <Label htmlFor="text-content-editor">Text</Label>
+            <Input
+              id="text-content-editor"
+              type="text"
+              value={shape.text ?? ''}
+              onChange={(e) => onUpdate(shape.id, { text: e.target.value })}
+              className="flex-1"
+              placeholder="Enter text"
+            />
+            <Label htmlFor="font-size-editor">Font Size (px)</Label>
+            <Input
+              id="font-size-editor"
+              type="number"
+              min="8"
+              max="200"
+              value={shape.fontSize ?? 20}
+              onChange={(e) => onUpdate(shape.id, { fontSize: Number(e.target.value) })}
+            />
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label>Font Family</Label>
+                <Select value={shape.fontFamily ?? 'Arial'} onValueChange={(v) => onUpdate(shape.id, { fontFamily: v })}>
+                  <SelectTrigger size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Arial">Arial</SelectItem>
+                    <SelectItem value="Inter">Inter</SelectItem>
+                    <SelectItem value="Roboto">Roboto</SelectItem>
+                    <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                    <SelectItem value="Courier New">Courier New</SelectItem>
+                    <SelectItem value="Monospace">Monospace</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Font Style</Label>
+                <Select value={shape.fontStyle ?? 'normal'} onValueChange={(v) => onUpdate(shape.id, { fontStyle: v as any })}>
+                  <SelectTrigger size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="italic">Italic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Font Weight</Label>
+                <Select value={shape.fontWeight ?? 'normal'} onValueChange={(v) => onUpdate(shape.id, { fontWeight: v as any })}>
+                  <SelectTrigger size="sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="bold">Bold</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="stroke-width-editor">
             Stroke Width: {shape.strokeWidth}px

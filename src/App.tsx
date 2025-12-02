@@ -37,6 +37,9 @@ export default function App() {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
+  const [textFontFamily, setTextFontFamily] = useState<string>('Arial');
+  const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
+  const [textFontSize, setTextFontSize] = useState<number>(20);
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showGCode, setShowGCode] = useState(false);
@@ -44,6 +47,7 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
   const [controlsVisible, setControlsVisible] = useState(true);
   const [theme, setTheme] = useState('galaxy');
+  const [fontSize, setFontSize] = useState(16);
 
   React.useEffect(() => {
     if (shapes.length === 0) {
@@ -69,6 +73,10 @@ export default function App() {
 
   
 
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--font-size', fontSize + 'px');
+  }, [fontSize]);
+
   const handleUndo = () => {
     undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
   };
@@ -93,9 +101,20 @@ export default function App() {
     return generateGCode(shapesToExport, m);
   };
 
+  const handleSimulateFromCanvas = () => {
+    const shapesToExport = selectedShapeIds.length > 0
+      ? shapes.filter(s => selectedShapeIds.includes(s.id))
+      : shapes;
+    const margin = gcodeData ? gcodeData.margin : 5;
+    const gcode = generateGCode(shapesToExport, margin);
+    setGcodeData({ gcode, margin });
+    setShowGCode(true);
+    setRightOpen(false);
+  };
+
   return (
     <div id="app-root" className={`theme-${theme} flex h-screen flex-col bg-background text-foreground`}>
-      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} />
+      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} fontSize={fontSize} onFontSizeChange={setFontSize} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar removed */}
@@ -151,7 +170,7 @@ export default function App() {
           </div>
 
           {!showGCode && (
-            <ControlsPanel
+          <ControlsPanel
               controlsVisible={controlsVisible}
               activeMenu={activeMenu}
               setActiveMenu={setActiveMenu}
@@ -167,6 +186,13 @@ export default function App() {
               selectedShape={selectedShape}
               onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
               onClearSelection={handleClearSelection}
+              onSimulate={handleSimulateFromCanvas}
+              textFontFamily={textFontFamily}
+              textFontStyle={textFontStyle}
+              onTextFontFamilyChange={setTextFontFamily}
+              onTextFontStyleChange={setTextFontStyle}
+              textFontSize={textFontSize}
+              onTextFontSizeChange={setTextFontSize}
             />
           )}
 
@@ -182,6 +208,10 @@ export default function App() {
             strokeColor={strokeColor}
             fillColor={fillColor}
             strokeWidth={strokeWidth}
+            textFontFamily={textFontFamily}
+            textFontStyle={textFontStyle}
+            textFontWeight={'normal'}
+            textFontSize={textFontSize}
           />
             ) : gcodeData ? (
               <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />

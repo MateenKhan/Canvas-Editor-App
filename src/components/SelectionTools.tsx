@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from './ui/popover';
 
 interface SelectionToolsProps {
   currentTool: Tool;
@@ -60,15 +60,69 @@ export function SelectionTools({ currentTool, onToolChange, onToggleSelect, onDe
               >
                 <MousePointer2 className="h-5 w-5" stroke="#2563eb" color="#2563eb" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMeasureOpen(true)}
-                title="Measure"
-                className="h-10 w-10 rounded-full"
-              >
-                <Ruler className="h-5 w-5" stroke="#334155" color="#334155" />
-              </Button>
+              <Popover open={measureOpen} onOpenChange={setMeasureOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Measure"
+                    className="h-10 w-10 rounded-full"
+                  >
+                    <Ruler className="h-5 w-5" stroke="#334155" color="#334155" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="start" className="w-80">
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Units</Label>
+                      <Select value={unit} onValueChange={(v) => setUnit(v as 'mm' | 'in')}>
+                        <SelectTrigger size="sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mm">mm</SelectItem>
+                          <SelectItem value="in">inches</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Width ({unit})</Label>
+                        <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={wVal} onChange={(e) => setWVal(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Height ({unit})</Label>
+                        <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={hVal} onChange={(e) => setHVal(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>X ({unit})</Label>
+                        <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={xVal} onChange={(e) => setXVal(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>Y ({unit})</Label>
+                        <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={yVal} onChange={(e) => setYVal(e.target.value)} />
+                      </div>
+                    </div>
+                    <Button
+                      variant="default"
+                      onClick={() => {
+                        const updates: any = {};
+                        if (wVal !== '') updates.width = toPx(Number(wVal));
+                        if (hVal !== '') updates.height = toPx(Number(hVal));
+                        if (xVal !== '') updates.x = toPx(Number(xVal));
+                        if (yVal !== '') updates.y = toPx(Number(yVal));
+                        onUpdateSelectedDimensions(updates);
+                        setMeasureOpen(false);
+                      }}
+                      disabled={!selectedShape}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Button
                 variant="ghost"
                 size="icon"
@@ -109,63 +163,7 @@ export function SelectionTools({ currentTool, onToolChange, onToggleSelect, onDe
                 <Trash2 className="h-5 w-5" stroke="#dc2626" color="#dc2626" />
               </Button>
       </div>
-
-      <Dialog open={measureOpen} onOpenChange={setMeasureOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Dimensions</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Units</Label>
-              <Select value={unit} onValueChange={(v) => setUnit(v as 'mm' | 'in')}>
-                <SelectTrigger size="sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mm">mm</SelectItem>
-                  <SelectItem value="in">inches</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Width ({unit})</Label>
-                <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={wVal} onChange={(e) => setWVal(e.target.value)} />
-              </div>
-              <div>
-                <Label>Height ({unit})</Label>
-                <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={hVal} onChange={(e) => setHVal(e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>X ({unit})</Label>
-                <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={xVal} onChange={(e) => setXVal(e.target.value)} />
-              </div>
-              <div>
-                <Label>Y ({unit})</Label>
-                <Input type="number" step={unit === 'mm' ? 0.1 : 0.01} value={yVal} onChange={(e) => setYVal(e.target.value)} />
-              </div>
-            </div>
-            <Button
-              variant="default"
-              onClick={() => {
-                const updates: any = {};
-                if (wVal !== '') updates.width = toPx(Number(wVal));
-                if (hVal !== '') updates.height = toPx(Number(hVal));
-                if (xVal !== '') updates.x = toPx(Number(xVal));
-                if (yVal !== '') updates.y = toPx(Number(yVal));
-                onUpdateSelectedDimensions(updates);
-                setMeasureOpen(false);
-              }}
-              disabled={!selectedShape}
-            >
-              Apply
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      
     </div>
   );
 }

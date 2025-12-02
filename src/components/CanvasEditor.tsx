@@ -10,6 +10,7 @@ import { useViewTransform } from '../hooks/useViewTransform';
 import { getResizeHandleHit } from '../utils/resize';
 import { mergeSelection } from '../utils/selection';
 import { createShape, updateShape } from '../utils/drawLifecycle';
+import { Input } from './ui/input';
 
 interface CanvasEditorProps {
   tool: Tool;
@@ -21,6 +22,10 @@ interface CanvasEditorProps {
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;
+  textFontFamily?: string;
+  textFontStyle?: 'normal' | 'italic';
+  textFontWeight?: 'normal' | 'bold';
+  textFontSize?: number;
 }
 
 export function CanvasEditor({
@@ -33,6 +38,10 @@ export function CanvasEditor({
   strokeColor,
   fillColor,
   strokeWidth,
+  textFontFamily,
+  textFontStyle,
+  textFontWeight,
+  textFontSize,
 }: CanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,6 +65,7 @@ export function CanvasEditor({
   const [selectionMode, setSelectionMode] = useState<'contains' | 'intersects'>('intersects');
   const [lastTapTime, setLastTapTime] = useState<number | null>(null);
   const [lastTapPoint, setLastTapPoint] = useState<Point | null>(null);
+  const [editingText, setEditingText] = useState<{ id: string; value: string } | null>(null);
 
   // Convert screen coordinates to canvas coordinates
   const screenToCanvas = useCallback((screenX: number, screenY: number): Point => {
@@ -276,7 +286,14 @@ export function CanvasEditor({
       } else {
         // Start drawing
         setIsDrawing(true);
-        const newShape = createShape(tool, point, strokeColor, fillColor, strokeWidth);
+        const newShape = createShape(
+          tool,
+          point,
+          strokeColor,
+          fillColor,
+          strokeWidth,
+          tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight, fontSize: textFontSize } : undefined
+        );
         setCurrentShape(newShape);
       }
     }
@@ -336,7 +353,14 @@ export function CanvasEditor({
       }
     } else {
       setIsDrawing(true);
-      const newShape = createShape(tool, point, strokeColor, fillColor, strokeWidth);
+      const newShape = createShape(
+        tool,
+        point,
+        strokeColor,
+        fillColor,
+        strokeWidth,
+        tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight, fontSize: textFontSize } : undefined
+      );
       setCurrentShape(newShape);
     }
   };
@@ -591,12 +615,12 @@ export function CanvasEditor({
     }
 
     if (isDrawing && currentShape) {
-      // Only add shape if it has meaningful size (except free line)
-      if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+      if (currentShape.type === 'type') {
         onShapesChange([...shapes, currentShape]);
-      } else if (currentShape.type !== 'freeLine' && 
-                 (currentShape.width ?? 0) > 5 && 
-                 (currentShape.height ?? 0) > 5) {
+        setEditingText({ id: currentShape.id, value: currentShape.text ?? '' });
+      } else if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+        onShapesChange([...shapes, currentShape]);
+      } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
         onShapesChange([...shapes, currentShape]);
       }
       setCurrentShape(null);
@@ -695,11 +719,27 @@ export function CanvasEditor({
       setIsSelecting(false);
       setSelectStart(null);
       setSelectionRect(null);
+    } else {
+      const s = shapes.find(x => x.id === foundId);
+      if (s && s.type === 'type') {
+        setEditingText({ id: s.id, value: s.text ?? '' });
+      }
     }
   };
 
+  const commitTextEdit = () => {
+    if (!editingText) return;
+    const updated = shapes.map(s => (s.id === editingText.id ? { ...s, text: editingText.value } : s));
+    onShapesChange(updated);
+    setEditingText(null);
+  };
+
+  const cancelTextEdit = () => {
+    setEditingText(null);
+  };
+
   return (
-    <div ref={containerRef} className="h-full w-full bg-gray-100">
+    <div ref={containerRef} className="relative h-full w-full bg-gray-100">
       <canvas
         ref={canvasRef}
         onMouseDown={handleMouseDown}
@@ -721,6 +761,27 @@ export function CanvasEditor({
         className="cursor-crosshair"
         style={{ cursor: tool === 'select' ? 'default' : 'crosshair', touchAction: 'none' }}
       />
+      {editingText && (() => {
+        const s = shapes.find(x => x.id === editingText.id);
+        if (!s) return null as any;
+        const x = (s.startPoint?.x ?? s.x ?? 0) * transform.scale + transform.translateX;
+        const y = (s.startPoint?.y ?? s.y ?? 0) * transform.scale + transform.translateY;
+        const fs = (s.fontSize ?? 20) * transform.scale;
+        const w = Math.max(50, Math.round((editingText.value.length || 1) * fs * 0.6));
+        return (
+          <Input
+            autoFocus
+            value={editingText.value}
+            onChange={(e) => setEditingText({ id: editingText.id, value: e.target.value })}
+            onBlur={commitTextEdit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitTextEdit();
+              if (e.key === 'Escape') cancelTextEdit();
+            }}
+            style={{ position: 'absolute', left: x, top: y, fontSize: fs, width: w, color: s.strokeColor || '#000', backgroundColor: 'rgba(255,255,255,0.95)', fontFamily: s.fontFamily || 'Arial', fontStyle: s.fontStyle || 'normal', fontWeight: s.fontWeight || 'normal' }}
+          />
+        );
+      })()}
       <ZoomControls
         transform={transform}
         setTransform={setTransform}
