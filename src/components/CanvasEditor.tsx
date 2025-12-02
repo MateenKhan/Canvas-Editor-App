@@ -3,6 +3,13 @@ import { Button } from './ui/button';
 import { ZoomIn, ZoomOut } from 'lucide-react@0.487.0';
 import { Shape, Point, Tool, ViewTransform } from '../types';
 import { drawShape, isPointInShape, getShapeBounds } from '../utils/shapes';
+import { intersectsRect, containsRect } from '../utils/geometry';
+import { ZoomControls } from './ZoomControls';
+import { ZoomIndicator } from './ZoomIndicator';
+import { useViewTransform } from '../hooks/useViewTransform';
+import { getResizeHandleHit } from '../utils/resize';
+import { mergeSelection } from '../utils/selection';
+import { createShape, updateShape } from '../utils/drawLifecycle';
 
 interface CanvasEditorProps {
   tool: Tool;
@@ -33,11 +40,7 @@ export function CanvasEditor({
   const [currentShape, setCurrentShape] = useState<Shape | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
-  const [transform, setTransform] = useState<ViewTransform>({
-    scale: 1,
-    translateX: 0,
-    translateY: 0,
-  });
+  const { transform, setTransform, zoomToAnchor } = useViewTransform({ scale: 1, translateX: 0, translateY: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [lastPinchDist, setLastPinchDist] = useState<number | null>(null);
@@ -274,75 +277,14 @@ export function CanvasEditor({
       } else {
         // Start drawing
         setIsDrawing(true);
-        const newShape: Shape = {
-          id: Date.now().toString(),
-          type: tool,
-          points: [point],
-          strokeColor,
-          fillColor,
-          strokeWidth,
-          x: point.x,
-          y: point.y,
-          startPoint: point,
-        };
+        const newShape = createShape(tool, point, strokeColor, fillColor, strokeWidth);
         setCurrentShape(newShape);
       }
     }
   };
 
-  function getResizeHandleHit(p: Point, shape: Shape, scale: number): string | null {
-    const size = 8 / scale;
-    const half = size / 2;
-    if (shape.type === 'straightLine' || shape.type === 'arrow') {
-      if (shape.startPoint && Math.abs(p.x - shape.startPoint.x) <= half && Math.abs(p.y - shape.startPoint.y) <= half) {
-        return 'start';
-      }
-      if (shape.endPoint && Math.abs(p.x - shape.endPoint.x) <= half && Math.abs(p.y - shape.endPoint.y) <= half) {
-        return 'end';
-      }
-      return null;
-    }
-    const b = getShapeBounds(shape);
-    const positions: { pos: Point; key: string }[] = [
-      { pos: { x: b.x, y: b.y }, key: 'nw' },
-      { pos: { x: b.x + b.width / 2, y: b.y }, key: 'n' },
-      { pos: { x: b.x + b.width, y: b.y }, key: 'ne' },
-      { pos: { x: b.x + b.width, y: b.y + b.height / 2 }, key: 'e' },
-      { pos: { x: b.x + b.width, y: b.y + b.height }, key: 'se' },
-      { pos: { x: b.x + b.width / 2, y: b.y + b.height }, key: 's' },
-      { pos: { x: b.x, y: b.y + b.height }, key: 'sw' },
-      { pos: { x: b.x, y: b.y + b.height / 2 }, key: 'w' },
-    ];
-    for (const h of positions) {
-      if (
-        p.x >= h.pos.x - half &&
-        p.x <= h.pos.x + half &&
-        p.y >= h.pos.y - half &&
-        p.y <= h.pos.y + half
-      ) {
-        return h.key;
-      }
-    }
-    return null;
-  }
 
-  function intersectsRect(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
-    return (
-      a.x < b.x + b.width &&
-      a.x + a.width > b.x &&
-      a.y < b.y + b.height &&
-      a.y + a.height > b.y
-    );
-  }
-
-  function containsRect(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean {
-    return (
-      b.x >= a.x &&
-      b.y >= a.y &&
-      b.x + b.width <= a.x + a.width &&
-      b.y + b.height <= a.y + a.height
-    );
-  }
+  
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault();
@@ -521,43 +463,13 @@ export function CanvasEditor({
       } else {
         setSelectionRect(null);
       }
-      let combined: string[] = [];
-      if (e.shiftKey) {
-        const set = new Set(selectedShapeIds);
-        regionIds.forEach(id => set.add(id));
-        combined = Array.from(set);
-      } else if (e.ctrlKey || e.metaKey) {
-        const set = new Set(selectedShapeIds);
-        regionIds.forEach(id => {
-          if (set.has(id)) set.delete(id); else set.add(id);
-        });
-        combined = Array.from(set);
-      } else {
-        combined = regionIds;
-      }
+      const combined = mergeSelection(selectedShapeIds, regionIds, e.shiftKey, e.ctrlKey || e.metaKey);
       onSelectionChange(combined);
       return;
     }
 
     if (isDrawing && currentShape) {
-      const updated = { ...currentShape };
-
-      if (tool === 'freeLine') {
-        updated.points.push(point);
-      } else if (tool === 'straightLine') {
-        updated.endPoint = point;
-        updated.points = [updated.startPoint!, point];
-      } else {
-        // For other shapes, calculate width and height from start point
-        const width = point.x - (updated.startPoint?.x ?? 0);
-        const height = point.y - (updated.startPoint?.y ?? 0);
-        updated.width = Math.abs(width);
-        updated.height = Math.abs(height);
-        updated.x = width < 0 ? point.x : updated.startPoint?.x ?? 0;
-        updated.y = height < 0 ? point.y : updated.startPoint?.y ?? 0;
-        updated.endPoint = point;
-      }
-
+      const updated = updateShape(tool, currentShape, point);
       setCurrentShape(updated);
     }
   };
@@ -657,21 +569,7 @@ export function CanvasEditor({
     }
 
     if (isDrawing && currentShape) {
-      const updated = { ...currentShape };
-      if (tool === 'freeLine') {
-        updated.points.push(point);
-      } else if (tool === 'straightLine') {
-        updated.endPoint = point;
-        updated.points = [updated.startPoint!, point];
-      } else {
-        const width = point.x - (updated.startPoint?.x ?? 0);
-        const height = point.y - (updated.startPoint?.y ?? 0);
-        updated.width = Math.abs(width);
-        updated.height = Math.abs(height);
-        updated.x = width < 0 ? point.x : updated.startPoint?.x ?? 0;
-        updated.y = height < 0 ? point.y : updated.startPoint?.y ?? 0;
-        updated.endPoint = point;
-      }
+      const updated = updateShape(tool, currentShape, point);
       setCurrentShape(updated);
     }
   };
@@ -780,20 +678,8 @@ export function CanvasEditor({
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-
     const zoom = e.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = Math.max(0.1, Math.min(10, transform.scale * zoom));
-
-    // Zoom towards mouse position
-    const scaleChange = newScale / transform.scale;
-    const newTranslateX = mouseX - (mouseX - transform.translateX) * scaleChange;
-    const newTranslateY = mouseY - (mouseY - transform.translateY) * scaleChange;
-
-    setTransform({
-      scale: newScale,
-      translateX: newTranslateX,
-      translateY: newTranslateY,
-    });
+    zoomToAnchor(mouseX, mouseY, zoom);
   };
 
   const handleContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -847,49 +733,12 @@ export function CanvasEditor({
         className="cursor-crosshair"
         style={{ cursor: tool === 'select' ? 'default' : 'crosshair', touchAction: 'none' }}
       />
-      <div className="absolute bottom-16 right-4 flex gap-2">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const anchorX = rect.width / 2;
-            const anchorY = rect.height / 2;
-            const newScale = Math.min(10, transform.scale * 1.1);
-            const scaleChange = newScale / transform.scale;
-            const newTranslateX = anchorX - (anchorX - transform.translateX) * scaleChange;
-            const newTranslateY = anchorY - (anchorY - transform.translateY) * scaleChange;
-            setTransform({ scale: newScale, translateX: newTranslateX, translateY: newTranslateY });
-          }}
-          title="Zoom In"
-        >
-          <ZoomIn />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const anchorX = rect.width / 2;
-            const anchorY = rect.height / 2;
-            const newScale = Math.max(0.1, transform.scale * 0.9);
-            const scaleChange = newScale / transform.scale;
-            const newTranslateX = anchorX - (anchorX - transform.translateX) * scaleChange;
-            const newTranslateY = anchorY - (anchorY - transform.translateY) * scaleChange;
-            setTransform({ scale: newScale, translateX: newTranslateX, translateY: newTranslateY });
-          }}
-          title="Zoom Out"
-        >
-          <ZoomOut />
-        </Button>
-      </div>
-      <div className="absolute bottom-4 right-4 rounded bg-white px-3 py-2 shadow-md">
-        <span className="text-gray-700">Zoom: {Math.round(transform.scale * 100)}%</span>
-      </div>
+      <ZoomControls
+        transform={transform}
+        setTransform={setTransform}
+        getCanvasRect={() => canvasRef.current ? canvasRef.current.getBoundingClientRect() : null}
+      />
+      <ZoomIndicator scale={transform.scale} />
     </div>
   );
 }

@@ -1,0 +1,35 @@
+import { Shape, Point, Tool } from '../types';
+
+export function createShape(tool: Tool, point: Point, strokeColor: string, fillColor: string, strokeWidth: number): Shape {
+  return {
+    id: Date.now().toString(),
+    type: tool,
+    points: [point],
+    strokeColor,
+    fillColor,
+    strokeWidth,
+    x: point.x,
+    y: point.y,
+    startPoint: point,
+  } as Shape;
+}
+
+export function updateShape(tool: Tool, shape: Shape, point: Point): Shape {
+  const updated = { ...shape } as Shape;
+  if (tool === 'freeLine') {
+    updated.points = [...(updated.points || []), point];
+  } else if (tool === 'straightLine') {
+    updated.endPoint = point;
+    updated.points = [updated.startPoint!, point];
+  } else {
+    const width = point.x - (updated.startPoint?.x ?? 0);
+    const height = point.y - (updated.startPoint?.y ?? 0);
+    updated.width = Math.abs(width);
+    updated.height = Math.abs(height);
+    updated.x = width < 0 ? point.x : updated.startPoint?.x ?? 0;
+    updated.y = height < 0 ? point.y : updated.startPoint?.y ?? 0;
+    updated.endPoint = point;
+  }
+  return updated;
+}
+

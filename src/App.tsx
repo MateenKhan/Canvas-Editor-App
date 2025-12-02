@@ -5,25 +5,39 @@ import { ShapeEditor } from './components/ShapeEditor';
 import { FileControls } from './components/FileControls';
 import { GCodeViewer } from './components/GCodeViewer';
 import { Button } from './components/ui/button';
-import { X, MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type as TypeIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Header } from './components/Header';
+import { ControlsPanel } from './components/ControlsPanel';
 import { SelectionTools } from './components/SelectionTools';
 import { DrawingTools } from './components/DrawingTools';
 // import { ExportTools } from './components/ExportTools';
 import { Shape, Tool } from './types';
+import { useCanvasTools } from './hooks/useCanvasTools';
+import { useUndoRedo } from './hooks/useUndoRedo';
+import { useShapes } from './hooks/useShapes';
 
 export default function App() {
-  const [currentTool, setCurrentTool] = useState<Tool>('select');
-  const [lastNonSelectTool, setLastNonSelectTool] = useState<Tool | null>(null);
-  const [shapes, setShapes] = useState<Shape[]>([]);
-  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
+  const { currentTool, handleToolChange, handleToggleSelectTool } = useCanvasTools();
+  const { undoStack, redoStack, pushState, undo, redo, canUndo, canRedo } = useUndoRedo();
+  const {
+    shapes,
+    setShapes,
+    selectedShapeIds,
+    setSelectedShapeIds,
+    selectedShape,
+    handleShapesChange,
+    handleSelectionChange,
+    handleSelectionCommit,
+    handleShapeUpdate,
+    handleUpdateSelectedDimensions,
+    handleClearSelection,
+    handleDeleteSelected,
+  } = useShapes(pushState);
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
-  const [undoStack, setUndoStack] = useState<{ shapes: Shape[]; selected: string[] }[]>([]);
-  const [redoStack, setRedoStack] = useState<{ shapes: Shape[]; selected: string[] }[]>([]);
   const [showGCode, setShowGCode] = useState(false);
   const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('tools');
@@ -33,129 +47,28 @@ export default function App() {
   }, []);
   
 
-  const selectedShape = shapes.find(s => selectedShapeIds.includes(s.id));
 
-  const handleShapesChange = (newShapes: Shape[]) => {
-    setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-    setShapes(newShapes);
-    setRedoStack([]);
-  };
-
-  const handleSelectionChange = (ids: string[]) => {
-    setSelectedShapeIds(ids);
-  };
-
-  const handleSelectionCommit = (ids: string[]) => {
-    setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-    setSelectedShapeIds(ids);
-    setRedoStack([]);
-  };
-
-  const handleShapeUpdate = (id: string, updates: Partial<Shape>) => {
-    setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-    setShapes(shapes.map(s => s.id === id ? { ...s, ...updates } : s));
-    setRedoStack([]);
-  };
-
-  const handleUpdateSelectedDimensions = (updates: Partial<Shape>) => {
-    if (selectedShapeIds.length === 0) return;
-    const next = shapes.map(s => selectedShapeIds.includes(s.id) ? { ...s, ...updates } : s);
-    setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-    setShapes(next);
-    setRedoStack([]);
-  };
-
-  const handleClearSelection = () => {
-    if (selectedShapeIds.length === 0) return;
-    setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-    setSelectedShapeIds([]);
-    setRedoStack([]);
-  };
-
-  const handleDeleteSelected = () => {
-    if (selectedShapeIds.length > 0) {
-      const next = shapes.filter(s => !selectedShapeIds.includes(s.id));
-      setUndoStack(prev => [...prev, { shapes, selected: selectedShapeIds }]);
-      setShapes(next);
-      setSelectedShapeIds([]);
-      setRedoStack([]);
-    }
-  };
+  
 
   const handleUndo = () => {
-    setUndoStack(prev => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setRedoStack(r => [...r, { shapes, selected: selectedShapeIds }]);
-      setShapes(last.shapes);
-      setSelectedShapeIds(last.selected);
-      return prev.slice(0, -1);
-    });
+    undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
   };
 
   const handleRedo = () => {
-    setRedoStack(prev => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      setUndoStack(u => [...u, { shapes, selected: selectedShapeIds }]);
-      setShapes(last.shapes);
-      setSelectedShapeIds(last.selected);
-      return prev.slice(0, -1);
-    });
+    redo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
   };
 
-  const handleToolChange = (tool: Tool) => {
-    if (tool !== 'select') setLastNonSelectTool(tool);
-    setCurrentTool(tool);
-  };
-
-  const getToolIcon = (tool: Tool) => {
-    switch (tool) {
-      case 'select':
-        return <MousePointer2 className="h-4 w-4" stroke="#2563eb" color="#2563eb" />;
-      case 'freeLine':
-        return <Pencil className="h-4 w-4" stroke="#0284c7" color="#0284c7" />;
-      case 'straightLine':
-        return <Minus className="h-4 w-4" stroke="#4f46e5" color="#4f46e5" />;
-      case 'rectangle':
-        return <Square className="h-4 w-4" stroke="#059669" color="#059669" />;
-      case 'circle':
-        return <CircleIcon className="h-4 w-4" stroke="#0891b2" color="#0891b2" />;
-      case 'triangle':
-        return <Triangle className="h-4 w-4" stroke="#ca8a04" color="#ca8a04" />;
-      case 'heart':
-        return <Heart className="h-4 w-4" stroke="#db2777" color="#db2777" />;
-      case 'star':
-        return <Star className="h-4 w-4" stroke="#d97706" color="#d97706" />;
-      case 'pentagon':
-        return <Pentagon className="h-4 w-4" stroke="#9333ea" color="#9333ea" />;
-      case 'hexagon':
-        return <Hexagon className="h-4 w-4" stroke="#7c3aed" color="#7c3aed" />;
-      case 'arrow':
-        return <ArrowRight className="h-4 w-4" stroke="#475569" color="#475569" />;
-      case 'type':
-        return <TypeIcon className="h-4 w-4" stroke="#4b5563" color="#4b5563" />;
-      default:
-        return null;
-    }
-  };
-
-  const handleToggleSelectTool = () => {
-    if (currentTool === 'select' && lastNonSelectTool) {
-      setCurrentTool(lastNonSelectTool);
-    } else {
-      setCurrentTool('select');
-    }
-  };
+  
 
   const handleViewGCode = (gcode: string, margin: number) => {
     setGcodeData({ gcode, margin });
     setShowGCode(true);
+    setRightOpen(false);
   };
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
-      <Header onToggleRight={() => setRightOpen((prev) => !prev)} />
+      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar removed */}
@@ -209,59 +122,23 @@ export default function App() {
           </div>
 
           {!showGCode && (
-            <div
-              className={`sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-2 py-2 ${controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}
-            >
-              {controlsVisible && (
-                <div id="controls-panel">
-                  <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-pressed={activeMenu === 'tools'}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 ${activeMenu === 'tools' ? 'border-blue-500' : 'border-gray-300'}`}
-                    onClick={() => { setActiveMenu('tools'); }}
-                  >
-                    {activeMenu === 'tools' && getToolIcon(currentTool)}
-                    <span>Tools</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={activeMenu === 'basic'}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 ${activeMenu === 'basic' ? 'border-blue-500' : 'border-gray-300'}`}
-                    onClick={() => { setActiveMenu('basic'); }}
-                  >
-                    {activeMenu === 'basic' && getToolIcon(currentTool)}
-                    <span>Basic</span>
-                  </button>
-                </div>
-                <div className="flex justify-end gap-2">
-                  {activeMenu === 'tools' ? (
-                    <SelectionTools
-                      currentTool={currentTool}
-                      onToolChange={handleToolChange}
-                      onToggleSelect={handleToggleSelectTool}
-                      onDeleteSelected={handleDeleteSelected}
-                      selectedCount={selectedShapeIds.length}
-                      onUndo={handleUndo}
-                      onRedo={handleRedo}
-                      canUndo={undoStack.length > 0}
-                      canRedo={redoStack.length > 0}
-                      selectedShape={selectedShape}
-                      onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
-                      onClearSelection={handleClearSelection}
-                    />
-                  ) : (
-                    <DrawingTools
-                      currentTool={currentTool}
-                      onToolChange={handleToolChange}
-                    />
-                  )}
-                </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ControlsPanel
+              controlsVisible={controlsVisible}
+              activeMenu={activeMenu}
+              setActiveMenu={setActiveMenu}
+              currentTool={currentTool}
+              onToolChange={handleToolChange}
+              onToggleSelect={handleToggleSelectTool}
+              onDeleteSelected={handleDeleteSelected}
+              selectedCount={selectedShapeIds.length}
+              onUndo={handleUndo}
+              onRedo={handleRedo}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              selectedShape={selectedShape}
+              onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
+              onClearSelection={handleClearSelection}
+            />
           )}
 
           <div className="flex-1 overflow-hidden">
@@ -284,13 +161,10 @@ export default function App() {
         </main>
 
         <aside
+          id="right-sidebar"
           className={`${rightOpen ? 'block fixed inset-y-0 right-0 z-50 w-80' : 'hidden'} sm:block sm:static sm:z-auto sm:w-80 border-l bg-white p-4 shadow-sm overflow-y-auto`}
         >
-          <div className="sm:hidden flex justify-end">
-            <Button variant="ghost" size="icon" onClick={() => setRightOpen(false)}>
-              <X />
-            </Button>
-          </div>
+          
           <FileControls 
             shapes={shapes}
             selectedShapeId={selectedShape ? selectedShape.id : null}
