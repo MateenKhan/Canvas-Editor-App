@@ -37,7 +37,7 @@ export default function App() {
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [fillColor, setFillColor] = useState('transparent');
   const [strokeWidth, setStrokeWidth] = useState(2);
-  const [textFontFamily, setTextFontFamily] = useState('Arial');
+  const [textFontFamily, setTextFontFamily] = useState('Signatra');
   const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
@@ -77,7 +77,8 @@ export default function App() {
   // Clear textToCreate after it's processed
   React.useEffect(() => {
     if (textToCreate) {
-      setTextToCreate(null);
+      // Don't clear it immediately, let CanvasEditor handle it
+      // setTextToCreate(null);
     }
   }, [textToCreate]);
 

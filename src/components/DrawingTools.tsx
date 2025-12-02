@@ -157,10 +157,11 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
       {/* Custom popover for text dialog */}
       {textPopupOpen && (
         <div 
-          className="absolute z-50 bg-white border rounded-lg shadow-lg p-4 w-80"
+          className="absolute z-50 bg-white border rounded-lg shadow-lg p-4"
           style={{
             top: `${popoverPosition.top}px`,
             left: `${popoverPosition.left}px`,
+            width: '600px', // Increased width to accommodate side-by-side layout
           }}
         >
           <div className="space-y-3">
@@ -179,125 +180,131 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
               Enter text and configure font settings
             </p>
             
-            {/* Font Preview Section */}
-            <div className="border rounded p-3 bg-gray-50">
-              <div className="text-xs font-medium text-gray-500 mb-1">Font Preview</div>
-              <div 
-                className="h-12 flex items-center justify-center overflow-hidden"
-                style={{
-                  fontFamily: textFontFamily === 'Signatra' ? 'Signatra, sans-serif' : `${textFontFamily}, sans-serif`,
-                  fontSize: `${textFontSize}px`,
-                  fontStyle: textFontStyle,
-                  fontWeight: textFontWeight,
-                  color: '#000000' // Dark color as per specification
-                }}
-              >
-                {textValue || 'Preview Text'}
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-900">Text Content</label>
-              <input 
-                type="text" 
-                value={textValue} 
-                onChange={(e) => setTextValue(e.target.value)} 
-                placeholder="Enter text"
-                className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Position X</label>
-                <input 
-                  type="number" 
-                  value={Math.round(textX)} 
-                  onChange={(e) => setTextX(Number(e.target.value))} 
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Position Y</label>
-                <input 
-                  type="number" 
-                  value={Math.round(textY)} 
-                  onChange={(e) => setTextY(Number(e.target.value))} 
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Font Family</label>
-                <select 
-                  value={textFontFamily} 
-                  onChange={(e) => setTextFontFamily(e.target.value)}
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+            {/* Main content area with form on left and preview on right */}
+            <div className="flex gap-4">
+              {/* Form controls on the left */}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-900">Text Content</label>
+                  <input 
+                    type="text" 
+                    value={textValue} 
+                    onChange={(e) => setTextValue(e.target.value)} 
+                    placeholder="Enter text"
+                    className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Position X</label>
+                    <input 
+                      type="number" 
+                      value={Math.round(textX)} 
+                      onChange={(e) => setTextX(Number(e.target.value))} 
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Position Y</label>
+                    <input 
+                      type="number" 
+                      value={Math.round(textY)} 
+                      onChange={(e) => setTextY(Number(e.target.value))} 
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Font Family</label>
+                    <select 
+                      value={textFontFamily} 
+                      onChange={(e) => setTextFontFamily(e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    >
+                      <option value="Signatra">Signatra</option>
+                      <option value="Arial">Arial</option>
+                      <option value="Verdana">Verdana</option>
+                      <option value="Helvetica">Helvetica</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Courier New">Courier New</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Font Size</label>
+                    <input 
+                      type="number" 
+                      value={textFontSize} 
+                      onChange={(e) => setTextFontSize(Number(e.target.value))} 
+                      min="8"
+                      max="100"
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Font Style</label>
+                    <select 
+                      value={textFontStyle} 
+                      onChange={(e) => setTextFontStyle(e.target.value as 'normal' | 'italic')}
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="italic">Italic</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-900">Font Weight</label>
+                    <select 
+                      value={textFontWeight} 
+                      onChange={(e) => setTextFontWeight(e.target.value as 'normal' | 'bold')}
+                      className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="bold">Bold</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-900">Font URL (Optional)</label>
+                  <input 
+                    type="text" 
+                    value={textFontUrl} 
+                    onChange={(e) => setTextFontUrl(e.target.value)} 
+                    placeholder="https://example.com/font.woff"
+                    className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">
+                    Enter URL to external font file (WOFF, WOFF2, TTF)
+                  </p>
+                </div>
+                <Button
+                  variant="default"
+                  onClick={handleCreateText}
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  <option value="Signatra">Signatra</option>
-                  <option value="Arial">Arial</option>
-                  <option value="Verdana">Verdana</option>
-                  <option value="Helvetica">Helvetica</option>
-                  <option value="Times New Roman">Times New Roman</option>
-                  <option value="Courier New">Courier New</option>
-                </select>
+                  Add Text to Canvas
+                </Button>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Font Size</label>
-                <input 
-                  type="number" 
-                  value={textFontSize} 
-                  onChange={(e) => setTextFontSize(Number(e.target.value))} 
-                  min="8"
-                  max="100"
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Font Style</label>
-                <select 
-                  value={textFontStyle} 
-                  onChange={(e) => setTextFontStyle(e.target.value as 'normal' | 'italic')}
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
+              
+              {/* Font Preview on the right */}
+              <div className="w-1/3 flex flex-col">
+                <div className="text-xs font-medium text-gray-500 mb-1">Font Preview</div>
+                <div 
+                  className="flex-1 border rounded p-3 bg-gray-50 flex items-center justify-center overflow-hidden"
+                  style={{
+                    fontFamily: textFontFamily === 'Signatra' ? 'Signatra, sans-serif' : `${textFontFamily}, sans-serif`,
+                    fontSize: `${textFontSize}px`,
+                    fontStyle: textFontStyle,
+                    fontWeight: textFontWeight,
+                    color: '#000000' // Dark color as per specification
+                  }}
                 >
-                  <option value="normal">Normal</option>
-                  <option value="italic">Italic</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900">Font Weight</label>
-                <select 
-                  value={textFontWeight} 
-                  onChange={(e) => setTextFontWeight(e.target.value as 'normal' | 'bold')}
-                  className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-                >
-                  <option value="normal">Normal</option>
-                  <option value="bold">Bold</option>
-                </select>
+                  {textValue || 'Preview Text'}
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-900">Font URL (Optional)</label>
-              <input 
-                type="text" 
-                value={textFontUrl} 
-                onChange={(e) => setTextFontUrl(e.target.value)} 
-                placeholder="https://example.com/font.woff"
-                className="w-full border rounded px-3 py-2 text-sm text-gray-900"
-              />
-              <p className="text-xs text-gray-600 mt-1">
-                Enter URL to external font file (WOFF, WOFF2, TTF)
-              </p>
-            </div>
-            <Button
-              variant="default"
-              onClick={handleCreateText}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Add Text to Canvas
-            </Button>
           </div>
         </div>
       )}

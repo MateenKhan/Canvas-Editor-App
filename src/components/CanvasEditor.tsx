@@ -1041,11 +1041,49 @@ export function CanvasEditor({
     }
   };
 
+  // Keep track of processed text creation requests to avoid duplicates
+  const processedTextRequests = useRef<Set<string>>(new Set());
+
   // Load external font when textToCreate changes
   useEffect(() => {
-    if (textToCreate && textToCreate.fontUrl) {
-      loadExternalFont(textToCreate.fontFamily, textToCreate.fontUrl).then(() => {
-        // After font is loaded, create the text shape
+    if (textToCreate) {
+      // Create a unique identifier for this text creation request
+      const requestId = `${textToCreate.text}-${textToCreate.x}-${textToCreate.y}-${textToCreate.fontFamily}-${textToCreate.fontSize}`;
+      
+      // Skip if we've already processed this request
+      if (processedTextRequests.current.has(requestId)) {
+        return;
+      }
+      
+      // Mark this request as processed
+      processedTextRequests.current.add(requestId);
+      
+      if (textToCreate.fontUrl) {
+        loadExternalFont(textToCreate.fontFamily, textToCreate.fontUrl).then(() => {
+          // After font is loaded, create the text shape
+          const newTextShape: Shape = {
+            id: Date.now().toString(),
+            type: 'type',
+            points: [],
+            strokeColor: strokeColor,
+            fillColor: 'transparent',
+            strokeWidth: 1,
+            x: textToCreate.x,
+            y: textToCreate.y,
+            text: textToCreate.text,
+            fontSize: textToCreate.fontSize,
+            fontFamily: textToCreate.fontFamily,
+            fontStyle: textToCreate.fontStyle,
+            fontWeight: textToCreate.fontWeight,
+          };
+          
+          onShapesChange([...shapes, newTextShape]);
+          onSelectionChange([newTextShape.id]);
+          onSelectionCommit([newTextShape.id]);
+          onToolChange('select');
+        });
+      } else {
+        // Create text shape without external font
         const newTextShape: Shape = {
           id: Date.now().toString(),
           type: 'type',
@@ -1066,29 +1104,7 @@ export function CanvasEditor({
         onSelectionChange([newTextShape.id]);
         onSelectionCommit([newTextShape.id]);
         onToolChange('select');
-      });
-    } else if (textToCreate) {
-      // Create text shape without external font
-      const newTextShape: Shape = {
-        id: Date.now().toString(),
-        type: 'type',
-        points: [],
-        strokeColor: strokeColor,
-        fillColor: 'transparent',
-        strokeWidth: 1,
-        x: textToCreate.x,
-        y: textToCreate.y,
-        text: textToCreate.text,
-        fontSize: textToCreate.fontSize,
-        fontFamily: textToCreate.fontFamily,
-        fontStyle: textToCreate.fontStyle,
-        fontWeight: textToCreate.fontWeight,
-      };
-      
-      onShapesChange([...shapes, newTextShape]);
-      onSelectionChange([newTextShape.id]);
-      onSelectionCommit([newTextShape.id]);
-      onToolChange('select');
+      }
     }
   }, [textToCreate, shapes, onShapesChange, onSelectionChange, onSelectionCommit, onToolChange, strokeColor]);
 
