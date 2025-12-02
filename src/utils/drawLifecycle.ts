@@ -12,7 +12,7 @@ export function createShape(
   strokeWidth: number,
   extras?: Partial<Shape>
 ): Shape {
-  return {
+  const baseShape: Shape = {
     id: Date.now().toString(),
     type: tool,
     points: [point],
@@ -22,7 +22,14 @@ export function createShape(
     x: point.x,
     y: point.y,
     startPoint: point,
-  } as Shape;
+  };
+
+  // Merge extras if provided
+  if (extras) {
+    Object.assign(baseShape, extras);
+  }
+
+  return baseShape;
 }
 
 export function updateShape(tool: Tool, shape: Shape, point: Point): Shape {
@@ -32,6 +39,10 @@ export function updateShape(tool: Tool, shape: Shape, point: Point): Shape {
   } else if (tool === 'straightLine') {
     updated.endPoint = point;
     updated.points = [updated.startPoint!, point];
+  } else if (tool === 'type') {
+    // For text tool, we don't update the shape during drawing
+    // Text shapes are created through the text popup
+    return updated;
   } else {
     const width = point.x - (updated.startPoint?.x ?? 0);
     const height = point.y - (updated.startPoint?.y ?? 0);
