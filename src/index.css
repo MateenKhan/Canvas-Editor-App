@@ -75,6 +75,14 @@
   }
 }
 
+/* Global input text color override */
+input,
+textarea,
+select,
+[data-slot="sidebar-input"] {
+  color: #000;
+}
+
 @layer base {
   *, :after, :before, ::backdrop {
     box-sizing: border-box;
@@ -1582,6 +1590,11 @@ html {
 .theme-galaxy h1, .theme-galaxy h2, .theme-galaxy h3 {
   color: #000;
   position: relative;
+}
+
+/* Galaxy theme: set h1 to white */
+.theme-galaxy h1 {
+  color: #fff;
 }
 
 .theme-galaxy h1::before, .theme-galaxy h2::before, .theme-galaxy h3::before {

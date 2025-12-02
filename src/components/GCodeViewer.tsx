@@ -1,20 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Download, Play, Pause, RotateCcw, SkipBack, SkipForward, ZoomIn, ZoomOut, Rewind, FastForward, Square, FileCode, Shapes } from 'lucide-react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from './ui/accordion';
  
 
 interface GCodeViewerProps {
   gcode: string;
   margin: number;
   onLoadFromCanvas?: () => string | void;
+  showSimulationControls?: boolean;
+  showGcodeEditor?: boolean;
+  showLoadFromGcodeButton?: boolean;
+  showSimulationHeader?: boolean;
+  showDownload?: boolean;
 }
 
 interface GCodeMove {
@@ -24,7 +22,7 @@ interface GCodeMove {
   z?: number;
 }
 
-export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProps) {
+export function GCodeViewer({ gcode, margin, onLoadFromCanvas, showSimulationControls = true, showGcodeEditor = true, showLoadFromGcodeButton = true, showSimulationHeader = true, showDownload = true }: GCodeViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -38,7 +36,10 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
   const [parseVersion, setParseVersion] = useState(0);
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
-  const [accordionOpen, setAccordionOpen] = useState<string[]>(['simulation', 'gcode']);
+  const initialSections = showSimulationControls
+    ? (showGcodeEditor ? ['simulation', 'gcode'] : ['simulation'])
+    : (showGcodeEditor ? ['gcode'] : []);
+  const [accordionOpen, setAccordionOpen] = useState<string[]>(initialSections);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const maxStepCount = Math.max(moves.length - 1, 1);
@@ -326,6 +327,253 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
     setParseVersion(v => v + 1);
   };
 
+  const content = showSimulationControls ? (
+    <div className="space-y-4">
+      <div className="bg-white border rounded-lg p-4 space-y-3">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span className="font-medium">Step: {currentStep} / {moves.length}</span>
+            <span className="font-medium">{moves.length > 0 ? Math.round((currentStep / Math.max(moves.length - 1, 1)) * 100) : 0}%</span>
+          </div>
+          <div className="py-3 px-1">
+            <div
+              ref={timelineRef}
+              className="relative h-3 rounded cursor-pointer select-none"
+              style={{ backgroundColor: '#3f3f46' }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsPlaying(false);
+                setIsScrubbing(true);
+                setStepFromClientX(e.clientX);
+                const onMove = (ev: MouseEvent) => setStepFromClientX(ev.clientX);
+                const onUp = () => {
+                  setIsScrubbing(false);
+                  window.removeEventListener('mousemove', onMove);
+                  window.removeEventListener('mouseup', onUp);
+                };
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+              }}
+              onTouchStart={(e) => {
+                const t = e.touches[0];
+                setIsPlaying(false);
+                setIsScrubbing(true);
+                setStepFromClientX(t.clientX);
+                const onMove = (ev: TouchEvent) => {
+                  const tt = ev.touches[0];
+                  if (tt) setStepFromClientX(tt.clientX);
+                };
+                const onEnd = () => {
+                  setIsScrubbing(false);
+                  window.removeEventListener('touchmove', onMove);
+                  window.removeEventListener('touchend', onEnd);
+                  window.removeEventListener('touchcancel', onEnd);
+                };
+                window.addEventListener('touchmove', onMove, { passive: true });
+                window.addEventListener('touchend', onEnd);
+                window.addEventListener('touchcancel', onEnd);
+              }}
+            >
+              <div className="absolute inset-0 rounded">
+                {segments.map((seg, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute top-0 h-full"
+                    style={{
+                      left: `${seg.startPct}%`,
+                      width: `${seg.widthPct}%`,
+                      backgroundImage: seg.isRapid
+                        ? 'linear-gradient(0deg, #858585, #858585), repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px)'
+                        : undefined,
+                      backgroundColor: seg.isRapid ? undefined : '#22c55e',
+                    }}
+                  />
+                ))}
+              </div>
+              <div
+                className="absolute left-0 top-0 h-1 rounded bg-blue-500 z-10"
+                style={{ width: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
+              />
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-4 rounded-full border-2 border-blue-500 bg-white shadow z-20"
+                style={{ left: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleReset} title="Reset">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            {showLoadFromGcodeButton && (
+              <Button variant="outline" size="sm" onClick={handleRefresh} title="Load from G-code">
+                <FileCode className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (!onLoadFromCanvas) return;
+                const next = onLoadFromCanvas();
+                if (typeof next === 'string' && next.length > 0) {
+                  setEditedGcode(next);
+                  setParseVersion(v => v + 1);
+                  setCurrentStep(0);
+                  setPlayDirection(1);
+                  setIsPlaying(true);
+                }
+              }}
+              title="Load from Canvas"
+            >
+              <Shapes className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setPlayDirection(-1); setIsPlaying(true); }} title="Reverse">
+              <Rewind className="h-4 w-4" />
+            </Button>
+            <Button variant="default" size="sm" onClick={() => { setPlayDirection(1); setIsPlaying(true); }} title="Play">
+              <Play className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsPlaying(false)} title="Pause">
+              <Pause className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setIsPlaying(false); setCurrentStep(0); }} title="Stop">
+              <Square className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleStepBackward} disabled={currentStep === 0} title="Step Back">
+              <SkipBack className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleStepForward} disabled={currentStep >= moves.length - 1} title="Step Forward">
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSpeed(s => Math.max(0, s - 100))} title="Slow">
+              <Rewind className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSpeed(s => Math.min(1000, s + 100))} title="Fast">
+              <FastForward className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">{speed}%</span>
+          </div>
+        </div>
+        <div 
+          ref={containerRef} 
+          className="relative w-full bg-gray-900 rounded-lg overflow-auto"
+          style={{ height: '400px', touchAction: 'none' }}
+          onWheel={(e) => {
+            if (e.ctrlKey) {
+              e.preventDefault();
+              const factor = e.deltaY < 0 ? 1.1 : 0.9;
+              setViewerScale((prev) => {
+                const next = Math.max(0.2, Math.min(10, prev * factor));
+                return next;
+              });
+            }
+          }}
+          onTouchStart={(e) => {
+            const container = containerRef.current;
+            if (!container) return;
+            if (e.touches.length === 2) {
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              pinchDistRef.current = Math.hypot(dx, dy);
+              const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - container.getBoundingClientRect().left;
+              const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - container.getBoundingClientRect().top;
+              pinchMidRef.current = { x: midX, y: midY };
+            }
+          }}
+          onTouchMove={(e) => {
+            const container = containerRef.current;
+            if (!container) return;
+            if (e.touches.length === 2 && pinchDistRef.current && pinchMidRef.current) {
+              e.preventDefault();
+              const dx = e.touches[0].clientX - e.touches[1].clientX;
+              const dy = e.touches[0].clientY - e.touches[1].clientY;
+              const dist = Math.hypot(dx, dy);
+              const factor = dist / pinchDistRef.current;
+              const rect = container.getBoundingClientRect();
+              const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+              const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+              pinchDistRef.current = dist;
+              pinchMidRef.current = { x: midX, y: midY };
+              const newViewerScale = Math.max(0.2, Math.min(10, viewerScale * factor));
+              setViewerScale(newViewerScale);
+            }
+          }}
+          onTouchEnd={() => {
+            pinchDistRef.current = null;
+            pinchMidRef.current = null;
+          }}
+        >
+          <canvas ref={canvasRef} />
+          <div className="absolute bottom-2 right-2 flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewerScale((s) => Math.min(10, s * 1.1))}
+              title="Zoom In"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setViewerScale((s) => Math.max(0.2, s * 0.9))}
+              title="Zoom Out"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="rounded bg-gray-800 text-white px-2 py-1 text-xs">{Math.round(viewerScale * 100)}%</span>
+          </div>
+        </div>
+        <div className="bg-gray-800 text-white px-3 py-2 rounded text-xs space-y-1">
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-green-500"></div>
+            <span>Cut path</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-0.5 bg-gray-500" style={{ borderTop: '1px dashed' }}></div>
+            <span>Rapid move</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span>Start</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            <span>Current position</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : (
+    showGcodeEditor ? (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <input value={findText} onChange={e => setFindText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Find" />
+          <input value={replaceText} onChange={e => setReplaceText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Replace" />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (!findText) return;
+              const next = editedGcode.split(findText).join(replaceText);
+              setEditedGcode(next);
+            }}
+          >
+            Replace All
+          </Button>
+          <span className="text-xs text-gray-600">Matches: {findText ? (editedGcode.split(findText).length - 1) : 0}</span>
+        </div>
+        <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[500px]">
+          <Textarea value={editedGcode} onChange={e => setEditedGcode(e.target.value)} className="text-white font-mono text-sm leading-relaxed min-h-[3840px] h-[256rem] overflow-auto" style={{ backgroundColor: '#f0f0f0' }} />
+        </div>
+      </div>
+    ) : null
+  );
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       <div className="flex items-center justify-between bg-white px-4 py-3 border-b shadow-sm">
@@ -335,310 +583,21 @@ export function GCodeViewer({ gcode, margin, onLoadFromCanvas }: GCodeViewerProp
             {editedGcode.split('\n').length} lines | Margin: {margin}mm
           </span>
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={handleDownload}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Download
-        </Button>
+        {showDownload && (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleDownload}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+        )}
       </div>
       
       <div className="flex-1 overflow-auto p-4">
-        <Accordion
-          type="multiple"
-          value={accordionOpen}
-          onValueChange={(val: string | string[]) => setAccordionOpen(Array.isArray(val) ? val : [])}
-          className="w-full"
-        >
-          <AccordionItem value="simulation">
-            <AccordionTrigger className="text-lg font-semibold">
-              Simulation
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="space-y-4">
-                {/* Media Player Controls */}
-                <div className="bg-white border rounded-lg p-4 space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span className="font-medium">Step: {currentStep} / {moves.length}</span>
-                      <span className="font-medium">{moves.length > 0 ? Math.round((currentStep / Math.max(moves.length - 1, 1)) * 100) : 0}%</span>
-                    </div>
-                    <div className="py-3 px-1">
-                      <div
-                        ref={timelineRef}
-                        className="relative h-3 rounded cursor-pointer select-none"
-                        style={{ backgroundColor: '#3f3f46' }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setIsPlaying(false);
-                          setIsScrubbing(true);
-                          setStepFromClientX(e.clientX);
-                          const onMove = (ev: MouseEvent) => setStepFromClientX(ev.clientX);
-                          const onUp = () => {
-                            setIsScrubbing(false);
-                            window.removeEventListener('mousemove', onMove);
-                            window.removeEventListener('mouseup', onUp);
-                          };
-                          window.addEventListener('mousemove', onMove);
-                          window.addEventListener('mouseup', onUp);
-                        }}
-                        onTouchStart={(e) => {
-                          const t = e.touches[0];
-                          setIsPlaying(false);
-                          setIsScrubbing(true);
-                          setStepFromClientX(t.clientX);
-                          const onMove = (ev: TouchEvent) => {
-                            const tt = ev.touches[0];
-                            if (tt) setStepFromClientX(tt.clientX);
-                          };
-                          const onEnd = () => {
-                            setIsScrubbing(false);
-                            window.removeEventListener('touchmove', onMove);
-                            window.removeEventListener('touchend', onEnd);
-                            window.removeEventListener('touchcancel', onEnd);
-                          };
-                          window.addEventListener('touchmove', onMove, { passive: true });
-                          window.addEventListener('touchend', onEnd);
-                          window.addEventListener('touchcancel', onEnd);
-                        }}
-                      >
-                        <div className="absolute inset-0 rounded">
-                          {segments.map((seg, idx) => (
-                            <div
-                              key={idx}
-                              className="absolute top-0 h-full"
-                              style={{
-                                left: `${seg.startPct}%`,
-                                width: `${seg.widthPct}%`,
-                                backgroundImage: seg.isRapid
-                                  ? 'linear-gradient(0deg, #858585, #858585), repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px)'
-                                  : undefined,
-                                backgroundColor: seg.isRapid ? undefined : '#22c55e',
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <div
-                          className="absolute left-0 top-0 h-1 rounded bg-blue-500 z-10"
-                          style={{ width: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
-                        />
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 size-4 rounded-full border-2 border-blue-500 bg-white shadow z-20"
-                          style={{ left: `${moves.length > 1 ? (currentStep / (moves.length - 1)) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Playback Controls */}
-                  <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleReset} title="Reset">
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleRefresh} title="Load from G-code">
-                      <FileCode className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (!onLoadFromCanvas) return;
-                        const next = onLoadFromCanvas();
-                        if (typeof next === 'string' && next.length > 0) {
-                          setEditedGcode(next);
-                          setParseVersion(v => v + 1);
-                          setCurrentStep(0);
-                          setPlayDirection(1);
-                          setIsPlaying(true);
-                          setAccordionOpen(prev => Array.from(new Set([...prev, 'simulation'])));
-                          setTimeout(() => {
-                            containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          }, 50);
-                        }
-                      }}
-                      title="Load from Canvas"
-                    >
-                      <Shapes className="h-4 w-4" />
-                    </Button>
-                      <Button variant="outline" size="sm" onClick={() => { setPlayDirection(-1); setIsPlaying(true); }} title="Reverse">
-                        <Rewind className="h-4 w-4" />
-                      </Button>
-                      <Button variant="default" size="sm" onClick={() => { setPlayDirection(1); setIsPlaying(true); }} title="Play">
-                        <Play className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setIsPlaying(false)} title="Pause">
-                        <Pause className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => { setIsPlaying(false); setCurrentStep(0); }} title="Stop">
-                        <Square className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleStepBackward} disabled={currentStep === 0} title="Step Back">
-                        <SkipBack className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleStepForward} disabled={currentStep >= moves.length - 1} title="Step Forward">
-                        <SkipForward className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Speed Control (single slider 0–1000) */}
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setSpeed(s => Math.max(0, s - 100))} title="Slow">
-                        <Rewind className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => setSpeed(s => Math.min(1000, s + 100))} title="Fast">
-                        <FastForward className="h-4 w-4" />
-                      </Button>
-                      <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">{speed}%</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div 
-                  ref={containerRef} 
-                  className="relative w-full bg-gray-900 rounded-lg overflow-auto"
-                  style={{ height: '400px', touchAction: 'none' }}
-                  
-                  onWheel={(e) => {
-                    if (e.ctrlKey) {
-                      e.preventDefault();
-                      const factor = e.deltaY < 0 ? 1.1 : 0.9;
-                      setViewerScale((prev) => {
-                        const next = Math.max(0.2, Math.min(10, prev * factor));
-                        return next;
-                      });
-                    }
-                  }}
-                  onTouchStart={(e) => {
-                    const container = containerRef.current;
-                    if (!container) return;
-                    if (e.touches.length === 2) {
-                      const dx = e.touches[0].clientX - e.touches[1].clientX;
-                      const dy = e.touches[0].clientY - e.touches[1].clientY;
-                      pinchDistRef.current = Math.hypot(dx, dy);
-                      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - container.getBoundingClientRect().left;
-                      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - container.getBoundingClientRect().top;
-                      pinchMidRef.current = { x: midX, y: midY };
-                    }
-                  }}
-                  onTouchMove={(e) => {
-                    const container = containerRef.current;
-                    if (!container) return;
-                    if (e.touches.length === 2 && pinchDistRef.current && pinchMidRef.current) {
-                      e.preventDefault();
-                      const dx = e.touches[0].clientX - e.touches[1].clientX;
-                      const dy = e.touches[0].clientY - e.touches[1].clientY;
-                      const dist = Math.hypot(dx, dy);
-                      const factor = dist / pinchDistRef.current;
-                      const rect = container.getBoundingClientRect();
-                      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-                      const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-                      pinchDistRef.current = dist;
-                      pinchMidRef.current = { x: midX, y: midY };
-                      const newViewerScale = Math.max(0.2, Math.min(10, viewerScale * factor));
-                      setViewerScale(newViewerScale);
-                    }
-                  }}
-                  onTouchEnd={() => {
-                    pinchDistRef.current = null;
-                    pinchMidRef.current = null;
-                    
-                  }}
-                >
-                  <canvas ref={canvasRef} />
-                  <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setViewerScale((s) => Math.min(10, s * 1.1))}
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setViewerScale((s) => Math.max(0.2, s * 0.9))}
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="h-4 w-4" />
-                    </Button>
-                    <span className="rounded bg-gray-800 text-white px-2 py-1 text-xs">{Math.round(viewerScale * 100)}%</span>
-                  </div>
-                  
-                </div>
-
-                <div className="bg-gray-800 text-white px-3 py-2 rounded text-xs space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-0.5 bg-green-500"></div>
-                    <span>Cut path</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-0.5 bg-gray-500" style={{ borderTop: '1px dashed' }}></div>
-                    <span>Rapid move</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span>Start</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                    <span>Current position</span>
-                  </div>
-                </div>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-            <AccordionItem value="gcode">
-              <AccordionTrigger className="text-lg font-semibold">
-                G-code
-              </AccordionTrigger>
-              <AccordionContent>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <input value={findText} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFindText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Find" />
-                  <input value={replaceText} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReplaceText(e.target.value)} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 flex-1" placeholder="Replace" />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      if (!findText) return;
-                      const next = editedGcode.split(findText).join(replaceText);
-                      setEditedGcode(next);
-                    }}
-                  >
-                    Replace All
-                  </Button>
-                  <span className="text-xs text-gray-600">Matches: {findText ? (editedGcode.split(findText).length - 1) : 0}</span>
-                </div>
-                <div className="bg-gray-900 rounded-lg p-4 overflow-auto max-h-[500px]">
-                  <Textarea value={editedGcode} onChange={e => setEditedGcode(e.target.value)} className="text-green-400 font-mono text-sm leading-relaxed min-h-[240px] h-64 overflow-auto" />
-                </div>
-                <div className="flex justify-end">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={() => {
-                      setParseVersion(v => v + 1);
-                      setCurrentStep(0);
-                      setPlayDirection(1);
-                      setIsPlaying(true);
-                      setAccordionOpen(prev => Array.from(new Set([...prev, 'simulation'])));
-                      setTimeout(() => {
-                        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }, 50);
-                    }}
-                  >
-                    Simulate
-                  </Button>
-                </div>
-              </div>
-              </AccordionContent>
-            </AccordionItem>
-        </Accordion>
+        
+        {content}
       </div>
     </div>
   );
