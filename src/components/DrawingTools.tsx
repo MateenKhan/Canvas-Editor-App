@@ -29,7 +29,7 @@ export function DrawingTools({ currentTool, onToolChange }: DrawingToolsProps) {
       <Accordion type="single" collapsible className="w-full">
         <AccordionItem value="tools">
           <AccordionTrigger className="px-2">
-            <span className="flex-1 text-center">Draw</span>
+            <span className="flex-1 text-center">Basic</span>
           </AccordionTrigger>
           <AccordionContent>
             <div className="flex flex-col items-center space-y-1.5">

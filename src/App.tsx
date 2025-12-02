@@ -37,6 +37,14 @@ export default function App() {
     setShapes(shapes.map(s => s.id === id ? { ...s, ...updates } : s));
   };
 
+  const handleUpdateSelectedDimensions = (updates: Partial<Shape>) => {
+    if (selectedShapeIds.length === 0) return;
+    const next = shapes.map(s => selectedShapeIds.includes(s.id) ? { ...s, ...updates } : s);
+    setUndoStack(prev => [...prev, shapes]);
+    setShapes(next);
+    setRedoStack([]);
+  };
+
   const handleDeleteSelected = () => {
     if (selectedShapeIds.length > 0) {
       const next = shapes.filter(s => !selectedShapeIds.includes(s.id));
@@ -90,6 +98,8 @@ export default function App() {
             onRedo={handleRedo}
             canUndo={undoStack.length > 0}
             canRedo={redoStack.length > 0}
+            selectedShape={selectedShape}
+            onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
           />
         </aside>
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tool } from '../types';
+import { Tool, Shape } from '../types';
 import { Button } from './ui/button';
 import {
   Popover,
@@ -26,6 +26,8 @@ interface ToolbarProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  selectedShape?: Shape;
+  onUpdateSelectedDimensions: (updates: Partial<Shape>) => void;
 }
 
 export function Toolbar({
@@ -43,6 +45,8 @@ export function Toolbar({
   onRedo,
   canUndo,
   canRedo,
+  selectedShape,
+  onUpdateSelectedDimensions,
 }: ToolbarProps) {
   const [showColorPicker, setShowColorPicker] = useState(false);
 
@@ -57,6 +61,8 @@ export function Toolbar({
         onRedo={onRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        selectedShape={selectedShape}
+        onUpdateSelectedDimensions={onUpdateSelectedDimensions}
       />
 
       <div className="my-2 h-px w-full bg-gray-200" />
