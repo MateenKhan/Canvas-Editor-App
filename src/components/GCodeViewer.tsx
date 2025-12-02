@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Button } from './ui/button';
-import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward } from 'lucide-react';
+import { Download, Play, Pause, RotateCcw, Gauge, SkipBack, SkipForward, ZoomIn, ZoomOut } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -28,6 +28,7 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
   const [speed, setSpeed] = useState(100);
   const [moves, setMoves] = useState<GCodeMove[]>([]);
   const animationRef = useRef<number>();
+  const [viewerScale, setViewerScale] = useState(1);
 
   // Parse G-code into moves
   useEffect(() => {
@@ -63,8 +64,12 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
     const container = containerRef.current;
     if (!canvas || !container || moves.length === 0) return;
 
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
+    const canvasWidth = Math.max(1, Math.round(container.clientWidth * viewerScale));
+    const canvasHeight = Math.max(1, Math.round(container.clientHeight * viewerScale));
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    canvas.style.width = `${canvasWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -160,7 +165,7 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
     ctx.textAlign = 'left';
     ctx.fillText(`Bounds: ${width.toFixed(2)} x ${height.toFixed(2)} mm`, 10, 20);
 
-  }, [moves, currentStep]);
+  }, [moves, currentStep, viewerScale]);
 
   // Animation loop
   useEffect(() => {
@@ -390,10 +395,39 @@ export function GCodeViewer({ gcode, margin }: GCodeViewerProps) {
                 
                 <div 
                   ref={containerRef} 
-                  className="w-full bg-gray-900 rounded-lg overflow-hidden"
+                  className="relative w-full bg-gray-900 rounded-lg overflow-auto"
                   style={{ height: '400px' }}
+                  onWheel={(e) => {
+                    if (e.ctrlKey) {
+                      e.preventDefault();
+                      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+                      setViewerScale((prev) => {
+                        const next = Math.max(0.2, Math.min(10, prev * factor));
+                        return next;
+                      });
+                    }
+                  }}
                 >
-                  <canvas ref={canvasRef} className="w-full h-full" />
+                  <canvas ref={canvasRef} />
+                  <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setViewerScale((s) => Math.min(10, s * 1.1))}
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setViewerScale((s) => Math.max(0.2, s * 0.9))}
+                      title="Zoom Out"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <span className="rounded bg-gray-800 text-white px-2 py-1 text-xs">{Math.round(viewerScale * 100)}%</span>
+                  </div>
                 </div>
 
                 <div className="bg-gray-800 text-white px-3 py-2 rounded text-xs space-y-1">
