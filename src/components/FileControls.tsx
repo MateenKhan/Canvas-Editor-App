@@ -3,7 +3,7 @@ import { Shape } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Upload, Download, FileCode, Info } from 'lucide-react';
+import { Upload, Download, FileCode, Info, Eye } from 'lucide-react';
 import { parseSVG } from '../utils/svg';
 import { generateGCode } from '../utils/gcode';
 
@@ -11,9 +11,10 @@ interface FileControlsProps {
   shapes: Shape[];
   selectedShapeId: string | null;
   onShapesChange: (shapes: Shape[]) => void;
+  onViewGCode?: (gcode: string, margin: number) => void;
 }
 
-export function FileControls({ shapes, selectedShapeId, onShapesChange }: FileControlsProps) {
+export function FileControls({ shapes, selectedShapeId, onShapesChange, onViewGCode }: FileControlsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [margin, setMargin] = useState(5);
 
@@ -28,6 +29,18 @@ export function FileControls({ shapes, selectedShapeId, onShapesChange }: FileCo
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleViewGCode = () => {
+    const shapesToExport = selectedShapeId 
+      ? shapes.filter(s => s.id === selectedShapeId)
+      : shapes;
+    
+    const gcode = generateGCode(shapesToExport, margin);
+    
+    if (onViewGCode) {
+      onViewGCode(gcode, margin);
     }
   };
 
@@ -193,16 +206,26 @@ For detailed instructions, see INSTRUCTIONS.md file.
           </div>
 
           <Button
+            onClick={handleViewGCode}
+            variant="outline"
+            className="w-full"
+            disabled={shapes.length === 0}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            View G-code
+          </Button>
+
+          <Button
             onClick={handleGenerateGCode}
             className="w-full"
             disabled={shapes.length === 0}
           >
             <FileCode className="mr-2 h-4 w-4" />
-            Generate G-code
+            Download G-code
           </Button>
 
           {selectedShapeId && (
-            <p className="text-gray-600">
+            <p className="text-sm text-gray-600">
               Note: Only selected shape will be exported
             </p>
           )}

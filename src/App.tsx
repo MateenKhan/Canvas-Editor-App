@@ -3,8 +3,11 @@ import { CanvasEditor } from './components/CanvasEditor';
 import { Toolbar } from './components/Toolbar';
 import { ShapeEditor } from './components/ShapeEditor';
 import { FileControls } from './components/FileControls';
+import { GCodeViewer } from './components/GCodeViewer';
 import { Button } from './components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Header } from './components/Header';
+// import { ExportTools } from './components/ExportTools';
 import { Shape, Tool } from './types';
 
 export default function App() {
@@ -16,11 +19,17 @@ export default function App() {
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  const [undoStack, setUndoStack] = useState<Shape[][]>([]);
+  const [redoStack, setRedoStack] = useState<Shape[][]>([]);
+  const [showGCode, setShowGCode] = useState(false);
+  const [gcodeData, setGcodeData] = useState<{ gcode: string; margin: number } | null>(null);
 
   const selectedShape = shapes.find(s => selectedShapeIds.includes(s.id));
 
   const handleShapesChange = (newShapes: Shape[]) => {
+    setUndoStack(prev => [...prev, shapes]);
     setShapes(newShapes);
+    setRedoStack([]);
   };
 
   const handleSelectionChange = (ids: string[]) => {
@@ -31,42 +40,56 @@ export default function App() {
     setShapes(shapes.map(s => s.id === id ? { ...s, ...updates } : s));
   };
 
+  const handleUpdateSelectedDimensions = (updates: Partial<Shape>) => {
+    if (selectedShapeIds.length === 0) return;
+    const next = shapes.map(s => selectedShapeIds.includes(s.id) ? { ...s, ...updates } : s);
+    setUndoStack(prev => [...prev, shapes]);
+    setShapes(next);
+    setRedoStack([]);
+  };
+
   const handleDeleteSelected = () => {
     if (selectedShapeIds.length > 0) {
-      setShapes(shapes.filter(s => !selectedShapeIds.includes(s.id)));
+      const next = shapes.filter(s => !selectedShapeIds.includes(s.id));
+      setUndoStack(prev => [...prev, shapes]);
+      setShapes(next);
       setSelectedShapeIds([]);
+      setRedoStack([]);
     }
+  };
+
+  const handleUndo = () => {
+    setUndoStack(prev => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setRedoStack(r => [...r, shapes]);
+      setShapes(last);
+      return prev.slice(0, -1);
+    });
+  };
+
+  const handleRedo = () => {
+    setRedoStack(prev => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      setUndoStack(u => [...u, shapes]);
+      setShapes(last);
+      return prev.slice(0, -1);
+    });
+  };
+
+  const handleViewGCode = (gcode: string, margin: number) => {
+    setGcodeData({ gcode, margin });
+    setShowGCode(true);
   };
 
   return (
     <div className="flex h-screen flex-col bg-gray-50">
-      <header className="border-b bg-white px-4 py-3 shadow-sm">
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="icon"
-            className="sm:hidden my-2"
-            onClick={() => setLeftOpen((prev) => !prev)}
-          >
-            <Menu />
-          </Button>
-
-          <h1 className="text-gray-900">Airtajal Canvas</h1>
-
-          <Button
-            variant="outline"
-            size="icon"
-            className="sm:hidden my-2"
-            onClick={() => setRightOpen((prev) => !prev)}
-          >
-            <Menu />
-          </Button>
-        </div>
-      </header>
+      <Header onToggleLeft={() => setLeftOpen((prev) => !prev)} onToggleRight={() => setRightOpen((prev) => !prev)} />
 
       <div className="flex flex-1 overflow-hidden">
         <aside
-          className={`${leftOpen ? 'block fixed inset-y-0 left-0 z-50 w-20' : 'hidden'} sm:block sm:static sm:z-auto sm:w-12 border-r bg-white shadow-sm`}
+          className={`${leftOpen ? 'block fixed inset-y-0 left-0 z-50 w-20' : 'hidden'} sm:block sm:static sm:z-auto sm:w-12 border-r bg-white shadow-sm h-full overflow-y-auto`}
         >
           <Toolbar 
             currentTool={currentTool} 
@@ -79,20 +102,69 @@ export default function App() {
             onStrokeWidthChange={setStrokeWidth}
             onDeleteSelected={handleDeleteSelected}
             selectedCount={selectedShapeIds.length}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={undoStack.length > 0}
+            canRedo={redoStack.length > 0}
+            selectedShape={selectedShape}
+            onUpdateSelectedDimensions={handleUpdateSelectedDimensions}
           />
         </aside>
 
-        <main className="flex-1 overflow-hidden">
-          <CanvasEditor
-            tool={currentTool}
-            shapes={shapes}
-            onShapesChange={handleShapesChange}
-            selectedShapeIds={selectedShapeIds}
-            onSelectionChange={handleSelectionChange}
-            strokeColor={strokeColor}
-            fillColor={fillColor}
-            strokeWidth={strokeWidth}
-          />
+        <main className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex items-center bg-gray-100 border-b">
+            <button
+              onClick={() => setShowGCode(false)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                !showGCode
+                  ? 'border-blue-500 text-blue-600 bg-white'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Canvas
+            </button>
+            {gcodeData && (
+              <>
+                <button
+                  onClick={() => setShowGCode(true)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                    showGCode
+                      ? 'border-blue-500 text-blue-600 bg-white'
+                      : 'border-transparent text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  G-code Preview
+                </button>
+                <button
+                  onClick={() => {
+                    setGcodeData(null);
+                    setShowGCode(false);
+                  }}
+                  className="px-2 py-2 text-gray-500 hover:text-gray-700"
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {!showGCode ? (
+              <CanvasEditor
+                tool={currentTool}
+                shapes={shapes}
+                onShapesChange={handleShapesChange}
+                selectedShapeIds={selectedShapeIds}
+                onSelectionChange={handleSelectionChange}
+                strokeColor={strokeColor}
+                fillColor={fillColor}
+                strokeWidth={strokeWidth}
+              />
+            ) : gcodeData ? (
+              <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} />
+            ) : null}
+          </div>
         </main>
 
         <aside
@@ -107,6 +179,7 @@ export default function App() {
             shapes={shapes}
             selectedShapeId={selectedShape ? selectedShape.id : null}
             onShapesChange={handleShapesChange}
+            onViewGCode={handleViewGCode}
           />
           
           {selectedShape && (

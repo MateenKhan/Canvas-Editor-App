@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Shape } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Trash2 } from 'lucide-react';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from './ui/select';
 
 interface ShapeEditorProps {
   shape: Shape;
@@ -12,6 +13,12 @@ interface ShapeEditorProps {
 }
 
 export function ShapeEditor({ shape, onUpdate, onDelete }: ShapeEditorProps) {
+  const [unit, setUnit] = useState<'mm' | 'in'>('mm');
+  const PX_PER_IN = 96;
+  const PX_PER_MM = PX_PER_IN / 25.4;
+  const pxPerUnit = useMemo(() => (unit === 'mm' ? PX_PER_MM : PX_PER_IN), [unit]);
+  const toUnit = (px?: number) => (px ?? 0) / pxPerUnit;
+  const toPx = (val: number) => val * pxPerUnit;
   return (
     <div className="mt-6 space-y-4 border-t pt-4">
       <div className="flex items-center justify-between">
@@ -27,6 +34,20 @@ export function ShapeEditor({ shape, onUpdate, onDelete }: ShapeEditorProps) {
       </div>
 
       <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label>Units</Label>
+            <Select value={unit} onValueChange={(v) => setUnit(v as 'mm' | 'in')}>
+              <SelectTrigger size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mm">mm</SelectItem>
+                <SelectItem value="in">inches</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div>
           <Label className="text-gray-700">Type</Label>
           <p className="text-gray-900 capitalize">{shape.type.replace(/([A-Z])/g, ' $1').trim()}</p>
@@ -88,21 +109,23 @@ export function ShapeEditor({ shape, onUpdate, onDelete }: ShapeEditorProps) {
         {shape.x !== undefined && shape.y !== undefined && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="x-pos">X Position</Label>
+              <Label htmlFor="x-pos">X Position ({unit})</Label>
               <Input
                 id="x-pos"
                 type="number"
-                value={Math.round(shape.x)}
-                onChange={(e) => onUpdate(shape.id, { x: Number(e.target.value) })}
+                step={unit === 'mm' ? 0.1 : 0.01}
+                value={Number(toUnit(shape.x).toFixed(2))}
+                onChange={(e) => onUpdate(shape.id, { x: toPx(Number(e.target.value)) })}
               />
             </div>
             <div>
-              <Label htmlFor="y-pos">Y Position</Label>
+              <Label htmlFor="y-pos">Y Position ({unit})</Label>
               <Input
                 id="y-pos"
                 type="number"
-                value={Math.round(shape.y)}
-                onChange={(e) => onUpdate(shape.id, { y: Number(e.target.value) })}
+                step={unit === 'mm' ? 0.1 : 0.01}
+                value={Number(toUnit(shape.y).toFixed(2))}
+                onChange={(e) => onUpdate(shape.id, { y: toPx(Number(e.target.value)) })}
               />
             </div>
           </div>
@@ -111,21 +134,23 @@ export function ShapeEditor({ shape, onUpdate, onDelete }: ShapeEditorProps) {
         {shape.width !== undefined && shape.height !== undefined && (
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label htmlFor="width">Width</Label>
+              <Label htmlFor="width">Width ({unit})</Label>
               <Input
                 id="width"
                 type="number"
-                value={Math.round(shape.width)}
-                onChange={(e) => onUpdate(shape.id, { width: Number(e.target.value) })}
+                step={unit === 'mm' ? 0.1 : 0.01}
+                value={Number(toUnit(shape.width).toFixed(2))}
+                onChange={(e) => onUpdate(shape.id, { width: toPx(Number(e.target.value)) })}
               />
             </div>
             <div>
-              <Label htmlFor="height">Height</Label>
+              <Label htmlFor="height">Height ({unit})</Label>
               <Input
                 id="height"
                 type="number"
-                value={Math.round(shape.height)}
-                onChange={(e) => onUpdate(shape.id, { height: Number(e.target.value) })}
+                step={unit === 'mm' ? 0.1 : 0.01}
+                value={Number(toUnit(shape.height).toFixed(2))}
+                onChange={(e) => onUpdate(shape.id, { height: toPx(Number(e.target.value)) })}
               />
             </div>
           </div>
