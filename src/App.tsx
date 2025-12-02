@@ -39,7 +39,6 @@ export default function App() {
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [textFontFamily, setTextFontFamily] = useState<string>('Arial');
   const [textFontStyle, setTextFontStyle] = useState<'normal' | 'italic'>('normal');
-  const [textFontSize, setTextFontSize] = useState<number>(20);
   // const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [showGCode, setShowGCode] = useState(false);
@@ -47,12 +46,12 @@ export default function App() {
   const [activeMenu, setActiveMenu] = useState<'tools' | 'basic'>('basic');
   const [controlsVisible, setControlsVisible] = useState(true);
   const [theme, setTheme] = useState('galaxy');
-  const [fontSize, setFontSize] = useState(16);
+  const [currentUnit, setCurrentUnit] = useState<'mm' | 'in' | 'ft'>('mm'); // Add unit state
 
   React.useEffect(() => {
     if (shapes.length === 0) {
-      const inch = 96;
-      const pxPerMm = inch / 25.4;
+      // Use mm as default unit instead of inches
+      const pxPerMm = 96 / 25.4; // pixels per millimeter
       const sampleRect: Shape = {
         id: `sample-${Date.now()}`,
         type: 'rectangle',
@@ -60,22 +59,16 @@ export default function App() {
         strokeColor: '#111827',
         fillColor: 'transparent',
         strokeWidth: 2,
-        x: pxPerMm * 10,
-        y: pxPerMm * 10,
-        width: inch * 3,
-        height: inch * 2,
+        x: pxPerMm * 10,  // 10mm from left
+        y: pxPerMm * 10,  // 10mm from top
+        width: pxPerMm * 100,  // 100mm wide
+        height: pxPerMm * 50,  // 50mm tall
       };
       setShapes([sampleRect]);
     }
   }, []);
-  
-
 
   
-
-  React.useEffect(() => {
-    document.documentElement.style.setProperty('--font-size', fontSize + 'px');
-  }, [fontSize]);
 
   const handleUndo = () => {
     undo(shapes, selectedShapeIds, setShapes, setSelectedShapeIds);
@@ -112,9 +105,14 @@ export default function App() {
     setRightOpen(false);
   };
 
+  // Handle unit change from controls
+  const handleUnitChange = (newUnit: 'mm' | 'in' | 'ft') => {
+    setCurrentUnit(newUnit);
+  };
+
   return (
     <div id="app-root" className={`theme-${theme} flex h-screen flex-col bg-background text-foreground`}>
-      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} fontSize={fontSize} onFontSizeChange={setFontSize} />
+      <Header onToggleRight={() => setRightOpen((prev) => !prev)} isRightOpen={rightOpen} theme={theme} onThemeChange={setTheme} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left sidebar removed */}
@@ -191,8 +189,9 @@ export default function App() {
               textFontStyle={textFontStyle}
               onTextFontFamilyChange={setTextFontFamily}
               onTextFontStyleChange={setTextFontStyle}
-              textFontSize={textFontSize}
-              onTextFontSizeChange={setTextFontSize}
+              shapes={shapes}
+              onShapesChange={handleShapesChange}
+              onUnitChange={handleUnitChange} // Pass unit change handler
             />
           )}
 
@@ -205,13 +204,13 @@ export default function App() {
             selectedShapeIds={selectedShapeIds}
             onSelectionChange={handleSelectionChange}
             onSelectionCommit={handleSelectionCommit}
+            onToolChange={handleToolChange} // Pass onToolChange prop
             strokeColor={strokeColor}
             fillColor={fillColor}
             strokeWidth={strokeWidth}
             textFontFamily={textFontFamily}
             textFontStyle={textFontStyle}
-            textFontWeight={'normal'}
-            textFontSize={textFontSize}
+            currentUnit={currentUnit} // Pass current unit to CanvasEditor
           />
             ) : gcodeData ? (
               <GCodeViewer gcode={gcodeData.gcode} margin={gcodeData.margin} onLoadFromCanvas={getCanvasGcode} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tool } from '../types';
+import { Tool, Shape } from '../types';
 import { SelectionTools } from './SelectionTools';
 import { DrawingTools } from './DrawingTools';
 import { MousePointer2, Pencil, Minus, Square, Circle as CircleIcon, Triangle, Heart, Star, Pentagon, Hexagon, ArrowRight, Type as TypeIcon } from 'lucide-react';
@@ -28,8 +28,9 @@ interface ControlsPanelProps {
   textFontStyle?: 'normal' | 'italic';
   onTextFontFamilyChange?: (family: string) => void;
   onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
-  textFontSize?: number;
-  onTextFontSizeChange?: (size: number) => void;
+  shapes: Shape[];
+  onShapesChange: (shapes: Shape[]) => void;
+  onUnitChange: (unit: 'mm' | 'in' | 'ft') => void; // Add onUnitChange prop
 }
 
 function getToolIcon(tool: Tool) {
@@ -63,35 +64,34 @@ function getToolIcon(tool: Tool) {
   }
 }
 
-export function ControlsPanel(props: ControlsPanelProps) {
-  const {
-    controlsVisible,
-    activeMenu,
-    setActiveMenu,
-    currentTool,
-    onToolChange,
-    onToggleSelect,
-    onDeleteSelected,
-    selectedCount,
-    onUndo,
-    onRedo,
-    canUndo,
-    canRedo,
-    selectedShape,
-    onUpdateSelectedDimensions,
-    onClearSelection,
-    onSimulate,
-    textFontFamily,
-    textFontStyle,
-    onTextFontFamilyChange,
-    onTextFontStyleChange,
-    textFontSize,
-    onTextFontSizeChange,
-  } = props;
-
+export function ControlsPanel({
+  controlsVisible,
+  activeMenu,
+  setActiveMenu,
+  currentTool,
+  onToolChange,
+  onToggleSelect,
+  onDeleteSelected,
+  selectedCount,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  selectedShape,
+  onUpdateSelectedDimensions,
+  onClearSelection,
+  onSimulate,
+  textFontFamily,
+  textFontStyle,
+  onTextFontFamilyChange,
+  onTextFontStyleChange,
+  shapes,
+  onShapesChange,
+  onUnitChange // Add onUnitChange prop
+}: ControlsPanelProps) {
   return (
     <div className={`sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-2 py-2 ${controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
-      {controlsVisible ? (
+      {controlsVisible && (
         <div id="controls-panel">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
@@ -99,19 +99,23 @@ export function ControlsPanel(props: ControlsPanelProps) {
                 type="button"
                 aria-pressed={activeMenu === 'tools'}
                 className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 ${activeMenu === 'tools' ? 'border-blue-500' : 'border-gray-300'}`}
-                onClick={() => { setActiveMenu('tools'); }}
+                onClick={() => { 
+                  setActiveMenu('tools'); 
+                  onToolChange('select'); // Change tool to select when main select tool is clicked
+                }}
               >
-                {activeMenu === 'tools' && getToolIcon(currentTool)}
-                <span>Tools</span>
+                <MousePointer2 className="h-4 w-4 ml-1 rounded-full" stroke="#2563eb" color="#2563eb" />
               </button>
               <button
                 type="button"
                 aria-pressed={activeMenu === 'basic'}
                 className={`rounded-full border px-3 py-1 text-xs font-medium cursor-pointer flex items-center gap-1.5 bg-gray-100 text-gray-700 ${activeMenu === 'basic' ? 'border-blue-500' : 'border-gray-300'}`}
-                onClick={() => { setActiveMenu('basic'); }}
+                onClick={() => { 
+                  setActiveMenu('basic'); 
+                  onToolChange('rectangle'); // Change tool to rectangle when basic shapes menu is clicked
+                }}
               >
-                {activeMenu === 'basic' && getToolIcon(currentTool)}
-                <span>Basic</span>
+                <Square className="h-4 w-4 ml-1 rounded-full" stroke="#059669" color="#059669" />
               </button>
               <Button
                 className="ml-auto"
@@ -123,7 +127,7 @@ export function ControlsPanel(props: ControlsPanelProps) {
                 Simulate
               </Button>
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 w-full">
               {activeMenu === 'tools' ? (
                 <SelectionTools
                   currentTool={currentTool}
@@ -138,6 +142,9 @@ export function ControlsPanel(props: ControlsPanelProps) {
                   selectedShape={selectedShape}
                   onUpdateSelectedDimensions={onUpdateSelectedDimensions}
                   onClearSelection={onClearSelection}
+                  shapes={shapes}
+                  onShapesChange={onShapesChange}
+                  onUnitChange={onUnitChange} // Pass onUnitChange to SelectionTools
                 />
               ) : (
                 <DrawingTools
@@ -147,14 +154,13 @@ export function ControlsPanel(props: ControlsPanelProps) {
                   textFontStyle={textFontStyle}
                   onTextFontFamilyChange={onTextFontFamilyChange}
                   onTextFontStyleChange={onTextFontStyleChange}
-                  textFontSize={textFontSize}
-                  onTextFontSizeChange={onTextFontSizeChange}
                 />
               )}
             </div>
+
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

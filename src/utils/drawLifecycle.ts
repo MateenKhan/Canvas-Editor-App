@@ -1,5 +1,9 @@
 import { Shape, Point, Tool } from '../types';
 
+// Define conversion constants
+const PX_PER_INCH = 96;
+const PX_PER_MM = PX_PER_INCH / 25.4;
+
 export function createShape(
   tool: Tool,
   point: Point,

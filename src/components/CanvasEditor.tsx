@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Button } from './ui/button';
-import { ZoomIn, ZoomOut } from 'lucide-react@0.487.0';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import { Shape, Point, Tool, ViewTransform } from '../types';
 import { drawShape, isPointInShape, getShapeBounds } from '../utils/shapes';
 import { intersectsRect, containsRect } from '../utils/geometry';
@@ -19,13 +19,14 @@ interface CanvasEditorProps {
   selectedShapeIds: string[];
   onSelectionChange: (ids: string[]) => void;
   onSelectionCommit: (ids: string[]) => void;
+  onToolChange: (tool: Tool) => void; // Add onToolChange prop
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;
   textFontFamily?: string;
   textFontStyle?: 'normal' | 'italic';
   textFontWeight?: 'normal' | 'bold';
-  textFontSize?: number;
+  currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
 }
 
 export function CanvasEditor({
@@ -35,13 +36,14 @@ export function CanvasEditor({
   selectedShapeIds,
   onSelectionChange,
   onSelectionCommit,
+  onToolChange, // Add onToolChange to destructuring
   strokeColor,
   fillColor,
   strokeWidth,
   textFontFamily,
   textFontStyle,
   textFontWeight,
-  textFontSize,
+  currentUnit = 'mm'
 }: CanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,6 +76,33 @@ export function CanvasEditor({
       y: (screenY - transform.translateY) / transform.scale,
     };
   }, [transform]);
+
+  // Set up touch event listeners to prevent passive event listener issues
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Set touch action to none to allow preventDefault for touch events
+    canvas.style.touchAction = 'none';
+    
+    // Set up wheel event listener with passive: false to allow preventDefault
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+      zoomToAnchor(mouseX, mouseY, zoom);
+    };
+    
+    canvas.addEventListener('wheel', handleWheelEvent, { passive: false });
+
+    // Cleanup function
+    return () => {
+      canvas.style.touchAction = '';
+      canvas.removeEventListener('wheel', handleWheelEvent);
+    };
+  }, [zoomToAnchor]);
 
   // Redraw canvas
   const redraw = useCallback(() => {
@@ -114,9 +143,56 @@ export function CanvasEditor({
       ctx.stroke();
     }
 
+    // Draw axis lines (x and y axes)
+    ctx.strokeStyle = '#ff0000'; // Red color for visibility
+    ctx.lineWidth = 2 / transform.scale;
+    ctx.setLineDash([]); // Solid line
+    
+    // Draw Y-axis (vertical line through origin)
+    ctx.beginPath();
+    ctx.moveTo(0, startY);
+    ctx.lineTo(0, endY);
+    ctx.stroke();
+    
+    // Draw X-axis (horizontal line through origin)
+    ctx.beginPath();
+    ctx.moveTo(startX, 0);
+    ctx.lineTo(endX, 0);
+    ctx.stroke();
+    
+    // Draw origin point
+    ctx.fillStyle = '#ff0000'; // Red color for origin point
+    ctx.beginPath();
+    ctx.arc(0, 0, 4 / transform.scale, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Draw axis labels and signs
+    ctx.fillStyle = '#ff0000'; // Red color for labels
+    ctx.font = `${14 / transform.scale}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // X-axis labels
+    ctx.fillText('X', endX - 20 / transform.scale, -10 / transform.scale); // X label
+    ctx.fillText('+', endX - 40 / transform.scale, -10 / transform.scale); // Positive X
+    ctx.fillText('-', startX + 40 / transform.scale, -10 / transform.scale); // Negative X
+    
+    // Y-axis labels
+    ctx.fillText('Y', 10 / transform.scale, endY - 20 / transform.scale); // Y label
+    ctx.fillText('+', 10 / transform.scale, endY - 40 / transform.scale); // Positive Y
+    ctx.fillText('-', 10 / transform.scale, startY + 40 / transform.scale); // Negative Y
+    
+    // Origin label
+    ctx.fillText('0', -15 / transform.scale, -15 / transform.scale); // Origin label
+
     // Draw all shapes
     shapes.forEach(shape => {
       drawShape(ctx, shape, selectedShapeIds.includes(shape.id));
+    });
+
+    // Draw dimensions for all shapes
+    shapes.forEach(shape => {
+      drawShapeDimensions(ctx, shape, transform.scale, currentUnit);
     });
 
     // Draw current shape being drawn
@@ -167,7 +243,7 @@ export function CanvasEditor({
     }
 
     ctx.restore();
-  }, [shapes, selectedShapeIds, currentShape, transform, isSelecting, selectionRect, selectionMode]);
+  }, [shapes, selectedShapeIds, currentShape, transform, isSelecting, selectionRect, selectionMode, currentUnit]);
 
   // Resize canvas to fit container
   useEffect(() => {
@@ -292,7 +368,7 @@ export function CanvasEditor({
           strokeColor,
           fillColor,
           strokeWidth,
-          tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight, fontSize: textFontSize } : undefined
+          tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight } : undefined
         );
         setCurrentShape(newShape);
       }
@@ -303,7 +379,8 @@ export function CanvasEditor({
   
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    // Note: We can't call preventDefault on passive event listeners
+    // The touchAction style is set to 'none' in the useEffect to allow this
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -328,6 +405,21 @@ export function CanvasEditor({
     const point = screenToCanvas(screenX, screenY);
 
     if (tool === 'select') {
+      // Check resize handle hit on selected shapes (for touch devices)
+      for (let i = shapes.length - 1; i >= 0; i--) {
+        const s = shapes[i];
+        if (!selectedShapeIds.includes(s.id)) continue;
+        const hit = getResizeHandleHit(point, s, transform.scale);
+        if (hit) {
+          setResizeTargetId(s.id);
+          setResizeHandle(hit);
+          setOriginalShape({ ...s });
+          setIsResizing(true);
+          setResizeStartPoint(point);
+          return;
+        }
+      }
+      
       let foundId: string | null = null;
       for (let i = shapes.length - 1; i >= 0; i--) {
         if (isPointInShape(point, shapes[i])) {
@@ -359,7 +451,7 @@ export function CanvasEditor({
         strokeColor,
         fillColor,
         strokeWidth,
-        tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight, fontSize: textFontSize } : undefined
+        tool === 'type' ? { fontFamily: textFontFamily, fontStyle: textFontStyle, fontWeight: textFontWeight } : undefined
       );
       setCurrentShape(newShape);
     }
@@ -487,7 +579,8 @@ export function CanvasEditor({
   };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    // Note: We can't call preventDefault on passive event listeners
+    // The touchAction style is set to 'none' in the useEffect to allow this
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -580,6 +673,46 @@ export function CanvasEditor({
       return;
     }
 
+    // Handle resizing on touch devices
+    if (isResizing && resizeTargetId && resizeHandle && resizeStartPoint) {
+      const idx = shapes.findIndex(s => s.id === resizeTargetId);
+      if (idx !== -1) {
+        const base = { ...(originalShape || shapes[idx]) } as Shape;
+        const dxTotal = point.x - resizeStartPoint.x;
+        const dyTotal = point.y - resizeStartPoint.y;
+        const target = { ...base } as Shape;
+        if (target.type === 'straightLine' || target.type === 'arrow') {
+          if (resizeHandle === 'start' && base.startPoint) {
+            target.startPoint = { x: (base.startPoint.x ?? 0) + dxTotal, y: (base.startPoint.y ?? 0) + dyTotal };
+            if (target.type === 'straightLine') target.points = [target.startPoint!, base.endPoint!];
+          } else if (resizeHandle === 'end' && base.endPoint) {
+            target.endPoint = { x: (base.endPoint.x ?? 0) + dxTotal, y: (base.endPoint.y ?? 0) + dyTotal };
+            if (target.type === 'straightLine') target.points = [base.startPoint!, target.endPoint!];
+          }
+        } else {
+          const x = base.x ?? 0;
+          const y = base.y ?? 0;
+          const w = base.width ?? 0;
+          const h = base.height ?? 0;
+          let nx = x;
+          let ny = y;
+          let nw = w;
+          let nh = h;
+          if (resizeHandle.includes('e')) { nw = Math.max(1, w + dxTotal); }
+          if (resizeHandle.includes('s')) { nh = Math.max(1, h + dyTotal); }
+          if (resizeHandle.includes('w')) { nx = x + dxTotal; nw = Math.max(1, w - dxTotal); }
+          if (resizeHandle.includes('n')) { ny = y + dyTotal; nh = Math.max(1, h - dyTotal); }
+          target.x = nx;
+          target.y = ny;
+          target.width = nw;
+          target.height = nh;
+        }
+        const updated = shapes.map(s => (s.id === resizeTargetId ? target : s));
+        onShapesChange(updated);
+      }
+      return;
+    }
+
     if (isDrawing && currentShape) {
       const updated = updateShape(tool, currentShape, point);
       setCurrentShape(updated);
@@ -615,25 +748,42 @@ export function CanvasEditor({
     }
 
     if (isDrawing && currentShape) {
+      let newShapeId: string | null = null;
+      
       if (currentShape.type === 'type') {
         onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
         setEditingText({ id: currentShape.id, value: currentShape.text ?? '' });
       } else if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
         onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
       } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
         onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
       }
+      
+      // Automatically select the newly created shape and switch to select tool
+      if (newShapeId) {
+        onSelectionChange([newShapeId]);
+        onSelectionCommit([newShapeId]);
+        // Switch to select tool after drawing
+        onToolChange('select');
+      }
+      
       setCurrentShape(null);
       setIsDrawing(false);
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    // Note: We can't call preventDefault on passive event listeners
+    // The touchAction style is set to 'none' in the useEffect to allow this
     setIsPanning(false);
     setLastPinchDist(null);
     const canvas = canvasRef.current;
-    if (canvas && tool === 'select') {
+    
+    // Handle tool selection on double tap
+    if (canvas) {
       const rect = canvas.getBoundingClientRect();
       const ct = e.changedTouches;
       if (ct && ct.length === 1) {
@@ -660,6 +810,7 @@ export function CanvasEditor({
         }
       }
     }
+    
     if (isDragging) {
       setIsDragging(false);
       return;
@@ -671,19 +822,46 @@ export function CanvasEditor({
       setSelectionRect(null);
       return;
     }
+    // Handle resize end on touch devices
+    if (isResizing) {
+      setIsResizing(false);
+      setResizeTargetId(null);
+      setResizeHandle(null);
+      setOriginalShape(null);
+      setResizeStartPoint(null);
+      return;
+    }
     if (isDrawing && currentShape) {
-      if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+      let newShapeId: string | null = null;
+      
+      if (currentShape.type === 'type') {
         onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
+        setEditingText({ id: currentShape.id, value: currentShape.text ?? '' });
+      } else if (currentShape.type === 'freeLine' && currentShape.points.length > 1) {
+        onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
       } else if (currentShape.type !== 'freeLine' && (currentShape.width ?? 0) > 5 && (currentShape.height ?? 0) > 5) {
         onShapesChange([...shapes, currentShape]);
+        newShapeId = currentShape.id;
       }
+      
+      // Automatically select the newly created shape and switch to select tool
+      if (newShapeId) {
+        onSelectionChange([newShapeId]);
+        onSelectionCommit([newShapeId]);
+        // Switch to select tool after drawing
+        onToolChange('select');
+      }
+      
       setCurrentShape(null);
       setIsDrawing(false);
     }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
+    // Note: We can't call preventDefault on passive event listeners
+    // The passive option is set to false in the canvas element props
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -756,7 +934,6 @@ export function CanvasEditor({
           setSelectStart(null);
           setSelectionRect(null);
         }}
-        onWheel={handleWheel}
         onContextMenu={handleContextMenu}
         className="cursor-crosshair"
         style={{ cursor: tool === 'select' ? 'default' : 'crosshair', touchAction: 'none' }}
@@ -790,4 +967,100 @@ export function CanvasEditor({
       <ZoomIndicator scale={transform.scale} />
     </div>
   );
+}
+
+// Add this new function to draw shape dimensions
+function drawShapeDimensions(ctx: CanvasRenderingContext2D, shape: Shape, scale: number, unit: 'mm' | 'in' | 'ft') {
+  const bounds = getShapeBounds(shape);
+  
+  // Only draw dimensions for shapes with valid dimensions
+  if (bounds.width <= 0 || bounds.height <= 0) return;
+  
+  // Conversion factors
+  const PX_PER_IN = 96;
+  const PX_PER_MM = PX_PER_IN / 25.4;
+  const PX_PER_FT = PX_PER_IN * 12;
+  
+  // Convert dimensions based on the selected unit
+  let widthInUnit, heightInUnit;
+  switch (unit) {
+    case 'mm':
+      widthInUnit = bounds.width / PX_PER_MM;
+      heightInUnit = bounds.height / PX_PER_MM;
+      break;
+    case 'in':
+      widthInUnit = bounds.width / PX_PER_IN;
+      heightInUnit = bounds.height / PX_PER_IN;
+      break;
+    case 'ft':
+      widthInUnit = bounds.width / PX_PER_FT;
+      heightInUnit = bounds.height / PX_PER_FT;
+      break;
+    default:
+      widthInUnit = bounds.width / PX_PER_MM;
+      heightInUnit = bounds.height / PX_PER_MM;
+  }
+  
+  // Save context to restore later
+  ctx.save();
+  
+  // Set up dimension text styling
+  ctx.font = `${12 / scale}px Arial`;
+  ctx.fillStyle = '#6b7280';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Draw width dimension line
+  const widthMidX = bounds.x + bounds.width / 2;
+  const widthLineY = bounds.y + bounds.height + 20 / scale;
+  
+  // Draw dimension line
+  ctx.strokeStyle = '#6b7280';
+  ctx.lineWidth = 1 / scale;
+  ctx.beginPath();
+  ctx.moveTo(bounds.x, widthLineY);
+  ctx.lineTo(bounds.x + bounds.width, widthLineY);
+  ctx.stroke();
+  
+  // Draw dimension line end caps
+  const capLength = 5 / scale;
+  ctx.beginPath();
+  ctx.moveTo(bounds.x, widthLineY - capLength);
+  ctx.lineTo(bounds.x, widthLineY + capLength);
+  ctx.moveTo(bounds.x + bounds.width, widthLineY - capLength);
+  ctx.lineTo(bounds.x + bounds.width, widthLineY + capLength);
+  ctx.stroke();
+  
+  // Draw width text in the selected unit
+  const widthText = `${widthInUnit.toFixed(unit === 'mm' ? 1 : 2)}${unit}`;
+  ctx.fillText(widthText, widthMidX, widthLineY - 8 / scale);
+  
+  // Draw height dimension line
+  const heightMidY = bounds.y + bounds.height / 2;
+  const heightLineX = bounds.x + bounds.width + 20 / scale;
+  
+  // Draw dimension line
+  ctx.beginPath();
+  ctx.moveTo(heightLineX, bounds.y);
+  ctx.lineTo(heightLineX, bounds.y + bounds.height);
+  ctx.stroke();
+  
+  // Draw dimension line end caps
+  ctx.beginPath();
+  ctx.moveTo(heightLineX - capLength, bounds.y);
+  ctx.lineTo(heightLineX + capLength, bounds.y);
+  ctx.moveTo(heightLineX - capLength, bounds.y + bounds.height);
+  ctx.lineTo(heightLineX + capLength, bounds.y + bounds.height);
+  ctx.stroke();
+  
+  // Draw height text in the selected unit
+  const heightText = `${heightInUnit.toFixed(unit === 'mm' ? 1 : 2)}${unit}`;
+  ctx.save();
+  ctx.translate(heightLineX + 8 / scale, heightMidY);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillText(heightText, 0, 0);
+  ctx.restore();
+  
+  // Restore context
+  ctx.restore();
 }
