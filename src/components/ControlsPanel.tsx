@@ -32,6 +32,7 @@ interface ControlsPanelProps {
   onTextFontFamilyChange?: (family: string) => void;
   onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
   onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
+  currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
 }
 
 function getToolIcon(tool: Tool) {
@@ -89,14 +90,31 @@ export function ControlsPanel({
   textFontStyle,
   onTextFontFamilyChange,
   onTextFontStyleChange,
-  onTextCreate
+  onTextCreate,
+  currentUnit // Add currentUnit prop
 }: ControlsPanelProps) {
+  const [showPalette, setShowPalette] = useState(false);
+  const paletteRef = useRef<HTMLDivElement>(null);
+
+  // Close palette when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(event.target as Node)) {
+        setShowPalette(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
-    <div className={`sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-2 py-2 ${controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+    <div className="border-b border-border bg-background">
       {controlsVisible && (
-        <div id="controls-panel">
-          <div className="flex flex-col gap-2">
+        <div id="controls-panel" className="px-4 py-3">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -158,6 +176,7 @@ export function ControlsPanel({
                   onTextFontFamilyChange={onTextFontFamilyChange}
                   onTextFontStyleChange={onTextFontStyleChange}
                   onTextCreate={onTextCreate}
+                  currentUnit={currentUnit} // Pass currentUnit to DrawingTools
                 />
               )}
             </div>

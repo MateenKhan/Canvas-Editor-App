@@ -204,6 +204,7 @@ export default function App() {
               onTextFontFamilyChange={setTextFontFamily}
               onTextFontStyleChange={setTextFontStyle}
               onTextCreate={handleTextCreate}
+              currentUnit={currentUnit} // Pass currentUnit to ControlsPanel
             />
           )}
 

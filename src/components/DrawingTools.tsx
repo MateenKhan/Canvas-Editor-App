@@ -11,6 +11,7 @@ interface DrawingToolsProps {
   onTextFontFamilyChange?: (family: string) => void;
   onTextFontStyleChange?: (style: 'normal' | 'italic') => void;
   onTextCreate?: (text: string, fontFamily: string, fontStyle: 'normal' | 'italic', fontWeight: 'normal' | 'bold', fontSize: number, x: number, y: number, fontUrl?: string) => void;
+  currentUnit?: 'mm' | 'in' | 'ft'; // Add currentUnit prop
 }
 
 export interface DrawingToolsRef {
@@ -38,7 +39,8 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
   textFontStyle: propFontStyle = 'normal',
   onTextFontFamilyChange,
   onTextFontStyleChange,
-  onTextCreate
+  onTextCreate,
+  currentUnit = 'mm' // Add currentUnit prop with default value
 }: DrawingToolsProps, ref) => {
   const [textPopupOpen, setTextPopupOpen] = useState(false);
   const [textValue, setTextValue] = useState('');
@@ -105,6 +107,73 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
     }
     setTextPopupOpen(false);
     setTextValue('');
+  };
+
+  // Conversion factors for units
+  const PX_PER_IN = 96;
+  const PX_PER_MM = PX_PER_IN / 25.4;
+  const PX_PER_FT = PX_PER_IN * 12;
+
+  // Convert pixels to the selected unit
+  const toUnit = (pixels: number): number => {
+    switch (currentUnit) {
+      case 'mm': return pixels / PX_PER_MM;
+      case 'in': return pixels / PX_PER_IN;
+      case 'ft': return pixels / PX_PER_FT;
+      default: return pixels / PX_PER_MM;
+    }
+  };
+
+  // Get unit abbreviation
+  const getUnitAbbreviation = (): string => {
+    switch (currentUnit) {
+      case 'mm': return 'mm';
+      case 'in': return 'in';
+      case 'ft': return 'ft';
+      default: return 'mm';
+    }
+  };
+
+  // Measure text dimensions
+  const measureTextDimensions = (): { width: number; height: number } => {
+    if (!textValue) {
+      return { width: 0, height: 0 };
+    }
+
+    // Create a temporary canvas to measure text
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return { width: 0, height: 0 };
+
+    const fontFamily = textFontFamily === 'Signatra' ? 'Signatra' : textFontFamily;
+    const fontStyle = textFontStyle;
+    const fontWeight = textFontWeight;
+    
+    // Set font properties for measurement
+    tempCtx.font = `${fontStyle} ${fontWeight} ${textFontSize}px "${fontFamily}"`;
+    const metrics = tempCtx.measureText(textValue);
+    
+    return {
+      width: metrics.width,
+      height: textFontSize,
+    };
+  };
+
+  // Get text dimensions in the selected unit
+  const getTextDimensionsInUnit = () => {
+    const dimensions = measureTextDimensions();
+    return {
+      width: toUnit(dimensions.width),
+      height: toUnit(dimensions.height),
+    };
+  };
+
+  // Get text position in the selected unit
+  const getTextPositionInUnit = () => {
+    return {
+      x: toUnit(textX),
+      y: toUnit(textY),
+    };
   };
 
   return (
@@ -291,17 +360,24 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
               {/* Font Preview on the right */}
               <div className="w-1/3 flex flex-col">
                 <div className="text-xs font-medium text-gray-500 mb-1">Font Preview</div>
-                <div 
-                  className="flex-1 border rounded p-3 bg-gray-50 flex items-center justify-center overflow-hidden"
-                  style={{
-                    fontFamily: textFontFamily === 'Signatra' ? 'Signatra, sans-serif' : `${textFontFamily}, sans-serif`,
-                    fontSize: `${textFontSize}px`,
-                    fontStyle: textFontStyle,
-                    fontWeight: textFontWeight,
-                    color: '#000000' // Dark color as per specification
-                  }}
-                >
-                  {textValue || 'Preview Text'}
+                <div className="relative flex-1 border rounded p-3 bg-gray-50 flex items-center justify-center overflow-hidden">
+                  <div 
+                    className="relative"
+                    style={{
+                      fontFamily: textFontFamily === 'Signatra' ? 'Signatra, sans-serif' : `"${textFontFamily}", sans-serif`,
+                      fontSize: `${textFontSize}px`,
+                      fontStyle: textFontStyle,
+                      fontWeight: textFontWeight,
+                      color: '#000000' // Dark color as per specification
+                    }}
+                  >
+                    {textValue || 'Preview Text'}
+                  </div>
+                </div>
+                {/* Add position and font size information */}
+                <div className="mt-2 text-xs text-gray-600">
+                  <div>Preview Height: {toUnit(textFontSize).toFixed(currentUnit === 'mm' ? 1 : 2)}{getUnitAbbreviation()}</div>
+                  <div>Preview Width: {getTextDimensionsInUnit().width.toFixed(currentUnit === 'mm' ? 1 : 2)}{getUnitAbbreviation()}</div>
                 </div>
               </div>
             </div>
