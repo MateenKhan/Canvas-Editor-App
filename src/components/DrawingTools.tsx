@@ -34,7 +34,7 @@ const toolItems: { name: Tool; icon: React.ReactNode; tooltip: string }[] = [
 export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
   currentTool,
   onToolChange,
-  textFontFamily: propFontFamily = 'Arial',
+  textFontFamily: propFontFamily = 'Signatra', // Changed default to Signatra
   textFontStyle: propFontStyle = 'normal',
   onTextFontFamilyChange,
   onTextFontStyleChange,
@@ -44,7 +44,7 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
   const [textValue, setTextValue] = useState('');
   const [textX, setTextX] = useState(0);
   const [textY, setTextY] = useState(0);
-  const [textFontSize, setTextFontSize] = useState(20);
+  const [textFontSize, setTextFontSize] = useState(20); // Increased default size for better preview
   const [textFontWeight, setTextFontWeight] = useState<'normal' | 'bold'>('normal');
   // Add local state for fontFamily and fontStyle so we can modify them in the popup
   const [textFontFamily, setTextFontFamily] = useState(propFontFamily);
@@ -96,7 +96,12 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
   // Handle text creation
   const handleCreateText = () => {
     if (textValue.trim() && onTextCreate) {
-      onTextCreate(textValue, textFontFamily, textFontStyle, textFontWeight, textFontSize, textX, textY, textFontUrl);
+      // Special handling for Signatra font - use local file
+      if (textFontFamily === 'Signatra') {
+        onTextCreate(textValue, textFontFamily, textFontStyle, textFontWeight, textFontSize, textX, textY, '/src/assets/Signatra.ttf');
+      } else {
+        onTextCreate(textValue, textFontFamily, textFontStyle, textFontWeight, textFontSize, textX, textY, textFontUrl);
+      }
     }
     setTextPopupOpen(false);
     setTextValue('');
@@ -137,12 +142,12 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
                 }}
                 className="border rounded px-2 py-1 text-sm"
               >
+                <option value="Signatra">Signatra</option>
                 <option value="Arial">Arial</option>
                 <option value="Verdana">Verdana</option>
                 <option value="Helvetica">Helvetica</option>
                 <option value="Times New Roman">Times New Roman</option>
                 <option value="Courier New">Courier New</option>
-                <option value="Signatra">Signatra</option>
               </select>
             </div>
           </div>
@@ -173,6 +178,24 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
             <p className="text-sm text-gray-700">
               Enter text and configure font settings
             </p>
+            
+            {/* Font Preview Section */}
+            <div className="border rounded p-3 bg-gray-50">
+              <div className="text-xs font-medium text-gray-500 mb-1">Font Preview</div>
+              <div 
+                className="h-12 flex items-center justify-center overflow-hidden"
+                style={{
+                  fontFamily: textFontFamily === 'Signatra' ? 'Signatra, sans-serif' : `${textFontFamily}, sans-serif`,
+                  fontSize: `${textFontSize}px`,
+                  fontStyle: textFontStyle,
+                  fontWeight: textFontWeight,
+                  color: '#000000' // Dark color as per specification
+                }}
+              >
+                {textValue || 'Preview Text'}
+              </div>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-900">Text Content</label>
               <input 
@@ -211,12 +234,12 @@ export const DrawingTools = forwardRef<DrawingToolsRef, DrawingToolsProps>(({
                   onChange={(e) => setTextFontFamily(e.target.value)}
                   className="w-full border rounded px-3 py-2 text-sm text-gray-900"
                 >
+                  <option value="Signatra">Signatra</option>
                   <option value="Arial">Arial</option>
                   <option value="Verdana">Verdana</option>
                   <option value="Helvetica">Helvetica</option>
                   <option value="Times New Roman">Times New Roman</option>
                   <option value="Courier New">Courier New</option>
-                  <option value="Signatra">Signatra</option>
                 </select>
               </div>
               <div>

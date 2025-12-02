@@ -1094,6 +1094,34 @@ export function CanvasEditor({
 
   // Function to load external fonts
   const loadExternalFont = async (fontFamily: string, fontUrl: string): Promise<void> => {
+    // Special handling for Signatra font - use local file
+    if (fontFamily === 'Signatra') {
+      // Check if font is already loaded
+      if (loadedFonts.has(fontFamily)) {
+        return;
+      }
+
+      try {
+        // Create a new FontFace using the local font file
+        const fontFace = new FontFace(fontFamily, 'url(/src/assets/Signatra.ttf)');
+        
+        // Load the font
+        await fontFace.load();
+        
+        // Add the font to the document
+        document.fonts.add(fontFace);
+        
+        // Mark as loaded
+        loadedFonts.add(fontFamily);
+        
+        // Trigger a redraw to apply the new font
+        redraw();
+      } catch (error) {
+        console.error(`Failed to load local Signatra font:`, error);
+      }
+      return;
+    }
+
     // Check if font is already loaded
     if (loadedFonts.has(fontFamily)) {
       return;
